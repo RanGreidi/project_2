@@ -1,12 +1,16 @@
-import networkx as nx
-import numpy as np
-import random
-import sys
-from matplotlib import pyplot as plt
-from utils import one_link_transmission,get_k_paths,plot_graph
 
-import torch
-from torch_geometric.utils.convert import from_networkx
+import networkx as nx
+from matplotlib import pyplot as plt
+
+import sys
+sys.path.insert(0, 'DIAMOND')
+import numpy as np
+from pprint import pprint
+
+from environment.utils import get_k_paths, one_link_transmission, plot_graph, init_seed
+
+# import torch
+# from torch_geometric.utils.convert import from_networkx
 
 
 class SlottedGraphEnvPower:
@@ -23,10 +27,11 @@ class SlottedGraphEnvPower:
                  render_mode = True,
                  seed=42,
                  **kwargs):
+        
+        
         # seed
-        np.random.seed(seed)
-        np.random.RandomState(seed)
-        random.seed(seed)
+        self.seed = seed
+        init_seed(seed)
 
         # received
         self.flows = flows
@@ -622,8 +627,8 @@ if __name__ == "__main__":
 
     # flow demands
     F = [
-        {"source": 0, "destination": 3, "packets": 5000, "time_constrain": 10},
-        {"source": 0, "destination": 3, "packets": 5000, "time_constrain": 10}
+        {"source": 0, "destination": 3, "packets": 500, "time_constrain": 10},
+        {"source": 0, "destination": 3, "packets": 500, "time_constrain": 10}
     ]
 
     env = SlottedGraphEnvPower( adjacency_matrix=A,
@@ -634,7 +639,7 @@ if __name__ == "__main__":
                                 reward_weights=reward_weights,
                                 telescopic_reward = True,
                                 direction = 'minimize',
-                                render_mode = False)
+                                render_mode = True)
 
     # adj_matrix, edges, free_paths, free_paths_idx, _ = env.reset()
     # reward = 0

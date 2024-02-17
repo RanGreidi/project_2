@@ -1,7 +1,15 @@
 import numpy as np
-import networkx as nx
-import random
 from matplotlib import pyplot as plt
+import networkx as nx
+import os
+import random
+
+def init_seed(seed):
+    os.environ['PYTHONHASHSEED'] = str(seed)
+    os.environ['TF_CUDNN_DETERMINISTIC'] = '1'
+    np.random.RandomState(seed)
+    np.random.seed(seed)
+    random.seed(seed)
 
 def update_graph_weight_from_path(G: nx.Graph,
                                   P: list,
@@ -58,6 +66,20 @@ def update_graph_weight_from_path(G: nx.Graph,
 
     return A
 
+def show_graph(G: nx.Graph):
+    """ draw graph"""
+    plt.figure()
+    # Create positions of all nodes
+    pos = nx.spring_layout(G)
+    # Draw the graph according to node positions
+    nx.draw_networkx(G, pos, with_labels=True, node_color="tab:blue")
+    # Create edge labels
+    labels = {(u, v): e['weight'] for u, v, e in G.edges(data=True)}
+    # Draw edge labels according to node positions
+    nx.draw_networkx_edge_labels(G, pos, edge_labels=labels)
+
+    plt.axis('off')
+    plt.show()
 
 def get_k_paths(G: nx.Graph,
                 s: int,
@@ -108,7 +130,6 @@ def get_k_paths(G: nx.Graph,
 
     return k_sp
 
-
 def one_link_transmission(c, packets):
     """one transmission on channel with capacity c for flows with packets packets
     @param c: link's capacity
@@ -136,10 +157,34 @@ def one_link_transmission(c, packets):
         i += 1
     return new_packs
 
+def link_queue_history_using_mac_protocol(c, packets):
+    """
+    returns history of transmission for one or more flows on a channel with capacity c
+    assuming some MAC protocol exists on the link.
+    When multiple agents transmit together on a shared link, the split the capacity until all have been sent
 
-def shortest_path(G, s, d):
-    return nx.shortest_path(G, source=s, target=d, weight='weight', method='dijkstra')
+    @param c: link's capacity
+    @param packets: list of flows load (packets)
+    """
+    hist = []
+    packs = packets.copy()
+    while sum(packs) > 0:
+        hist.append(packs)
+        packs = one_link_transmission(c, packs)
+    return np.array(hist)
 
+def calc_transmission_rate(link_mac):
+    """
+    calculates the transmission rate (based on bottleneck)
+    :param link_mac:
+    :return:
+    """
+    if len(link_mac) == 1:
+        return link_mac[0]
+    trans = np.stack([link_mac[i] - link_mac[i+1] for i in range(len(link_mac)-1)], axis=0)
+    # if len(trans.shape) == 1:
+    #     return trans
+    return np.min(trans, axis=0)
 
 def generate_random_graph(n, e, seed=None):
     """
@@ -185,7 +230,6 @@ def generate_random_graph(n, e, seed=None):
     # return g
     return adjacency, positions
 
-
 def create_geant2_graph():
     """
     nodes and edges from: https://github.com/knowledgedefinednetworking/DRL-GNN/blob/master/DQN/gym-environments/gym_environments/envs/environment1.py
@@ -204,7 +248,6 @@ def create_geant2_graph():
     pos = np.stack(list(pos.values()), axis=0)
     return A, pos
 
-
 def create_nsfnet_graph():
     """
     nodes and edges from: https://github.com/knowledgedefinednetworking/DRL-GNN/blob/master/DQN/gym-environments/gym_environments/envs/environment1.py
@@ -220,7 +263,6 @@ def create_nsfnet_graph():
     pos = nx.spring_layout(G, seed=124)
     pos = np.stack(list(pos.values()), axis=0)
     return A, pos
-
 
 def gen_grid_graph(n, special_edges_add=None, special_edges_remove=None):
     """
@@ -276,6 +318,8 @@ def gen_grid_graph(n, special_edges_add=None, special_edges_remove=None):
 
     return A, positions
 
+def shortest_path(G, s, d):
+    return nx.shortest_path(G, source=s, target=d, weight='weight', method='dijkstra')
 
 def plot_graph(graph,graph_pos, labels, total_time_slots):
     labels_matrix = np.array(())
@@ -289,4 +333,5 @@ def plot_graph(graph,graph_pos, labels, total_time_slots):
     comment = f"Time step: {total_time_slots}"
     plt.text(0.5, -0.1, comment, ha='center', va='center', transform=plt.gca().transAxes)
     plt.savefig('graph.png')
+    plt.close()
     return

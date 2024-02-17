@@ -62,23 +62,23 @@ class TestvsCompetitors:
             seed = SEED + (episode + 1) + self.episode_from + 1
 
             # generate env
-            env = generate_env(num_nodes=self.num_nodes,
-                               num_edges=self.num_edges,
-                               num_actions=self.num_actions,
-                               num_flows=self.num_flows,
-                               min_flow_demand=kwargs.get('min_flow_demand', 100),
-                               max_flow_demand=kwargs.get('max_flow_demand', 200),
-                               min_capacity=kwargs.get('min_capacity', 200),
-                               max_capacity=kwargs.get('max_capacity', 500),
-                               seed=seed,
-                               graph_mode=kwargs.get('graph_mode', 'random'),
-                               trx_power_mode=kwargs.get('trx_power_mode', 'equal'),
-                               rayleigh_scale=kwargs.get('rayleigh_scale'),
-                               max_trx_power=kwargs.get('max_trx_power'),
-                               channel_gain=kwargs.get('channel_gain'))
+            env,slotted_env = generate_env( num_nodes=self.num_nodes,
+                                            num_edges=self.num_edges,
+                                            num_actions=self.num_actions,
+                                            num_flows=self.num_flows,
+                                            min_flow_demand=kwargs.get('min_flow_demand', 100),
+                                            max_flow_demand=kwargs.get('max_flow_demand', 200),
+                                            min_capacity=kwargs.get('min_capacity', 200),
+                                            max_capacity=kwargs.get('max_capacity', 500),
+                                            seed=seed,
+                                            graph_mode=kwargs.get('graph_mode', 'random'),
+                                            trx_power_mode=kwargs.get('trx_power_mode', 'equal'),
+                                            rayleigh_scale=kwargs.get('rayleigh_scale'),
+                                            max_trx_power=kwargs.get('max_trx_power'),
+                                            channel_gain=kwargs.get('channel_gain'))
 
             # test DIAMOND
-            diamond_paths, grrl_rates_data, grrl_delay_data = self.diamond(env, grrl_data=True)
+            diamond_paths, grrl_rates_data, grrl_delay_data = self.diamond(slotted_env, grrl_data=True)
             diamond_delay_data = env.get_delay_data()
             diamond_rates_data = env.get_rates_data()
             data['diamond_delay'] += np.max(diamond_delay_data['delay_per_flow'])

@@ -6,6 +6,7 @@ import sys
 sys.path.insert(0, 'DIAMOND')
 import numpy as np
 from pprint import pprint
+
 from environment.utils import get_k_paths, link_queue_history_using_mac_protocol, init_seed, calc_transmission_rate
 
 

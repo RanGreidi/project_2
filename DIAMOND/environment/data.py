@@ -1,6 +1,7 @@
 from environment import GraphEnvPower as GraphEnv
+from environment import SlottedGraphEnvPower as SlottedGraphEnvPower
 from environment.utils import *
-
+import random
 
 def _get_random_flows(num_nodes, num_flows, demands=[100], seed=1):
     """
@@ -103,4 +104,15 @@ def generate_env(num_nodes=10,
                    seed=seed,
                    **kwargs)
 
-    return env
+    slotted_env = SlottedGraphEnvPower(adjacency_matrix=adjacency,
+                   bandwidth_matrix=capacity_matrix,
+                   interference_matrix=interference_matrix,
+                   node_positions=positions,
+                   flows=flows,
+                   k=num_actions,
+                   direction=direction,
+                   reward_balance=reward_balance,
+                   seed=seed,
+                   **kwargs)
+
+    return env,slotted_env
