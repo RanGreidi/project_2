@@ -91,7 +91,7 @@ class GraphEnvPower:
         self.links_length = None
         self.cumulative_link_interference = None
         self.current_link_capacity = None
-        self.current_link_queue = None
+        #self.current_link_queue = None
         self.bandwidth_edge_list = None
         self.demands = None
         self.last_action = np.zeros_like(self.adjacency_matrix)
@@ -158,7 +158,7 @@ class GraphEnvPower:
         self.interference_map = np.zeros((L, L))
         self.current_link_interference = np.zeros(L)
         self.cumulative_link_interference = np.zeros(L)
-        self.current_link_queue = np.zeros(self.num_edges)
+        #self.current_link_queue = np.zeros(self.num_edges)
         self.current_link_capacity = self.bandwidth_edge_list.copy()
         self.num_sps = np.zeros(self.num_edges // 2)
         self.trx_power = self._init_transmission_power()
@@ -211,7 +211,7 @@ class GraphEnvPower:
         self.current_link_interference = np.zeros_like(self.current_link_interference)
         self.cumulative_link_interference = np.zeros_like(self.cumulative_link_interference)
         self.current_link_capacity = self.bandwidth_edge_list.copy()
-        self.current_link_queue = np.zeros_like(self.current_link_queue)
+        #self.current_link_queue = np.zeros_like(self.current_link_queue)
         self.last_action = np.zeros_like(self.last_action)
         self.flows_delay = np.zeros_like(self.flows_delay)
         self.flows_rate = np.array( [np.min(f + [self.flows[i]["packets"]]) for i, f in enumerate(self.flows_bottleneck)]  )
@@ -433,8 +433,8 @@ class GraphEnvPower:
         assert len(flow_rates) == len(
             packets), f"rates: {flow_rates}, packets: {packets}, capacity: {link_attr['capacity']}"
 
-        # 2. add packets to link's queue
-        self.current_link_queue[(eid * 2 - int(u < v)) % self.num_edges] += sum(packets)
+        # # 2. add packets to link's queue
+        # self.current_link_queue[(eid * 2 - int(u < v)) % self.num_edges] += sum(packets)
 
         # 3. reward depends on capacity of the link
         # TODO: update reward mechanism
@@ -447,24 +447,24 @@ class GraphEnvPower:
 
         return reward, num_transmissions, num_transmissions_per_flow, flow_rates
 
-    def __global_step_helper(self, action, active_flows, update_delay=False):
+    def __global_step_helper(self, actions, active_flows, update_delay=False):
         """send packet (destined to d) from node u to node v
 
         @param action: |F|x2 matrix, rows=flows, columns=(u,v)
         """
         reward = 0
 
-        action_dict = {}
-        for a in action:
-            idxs = [idx for idx, b in enumerate(action) if b == a]  # all occurrences of link (u,v)
+        actions_dict = {}
+        for a in actions:
+            idxs = [idx for idx, b in enumerate(actions) if b == a]  # all occurrences of link (u,v)
             packets = [self.flows[active_flows[i]]["packets"] for i in idxs]  # list of packets want to be sent over link (u,v)
             sorted_packets = [(idxs[j], packets[j]) for j, _ in enumerate(packets)]
             sorted_flows = [active_flows[x[0]] for x in sorted_packets]
             sorted_packets = [x[1] for x in sorted_packets]
-            action_dict[str(a)] = {"link": a, "packets": sorted_packets, "flows": sorted_flows}
+            actions_dict[str(a)] = {"link": a, "packets": sorted_packets, "flows": sorted_flows}
 
         # 1. transmit on one link for all flows and update interference on the links
-        for a in action_dict.values():
+        for a in actions_dict.values():
             u = a["link"][0]
             v = a["link"][1]
 
@@ -473,7 +473,7 @@ class GraphEnvPower:
 
         # 2. calculate rewards (influence on others, want to *minimize*)
         transmission_durations = []
-        for a in action_dict.values():
+        for a in actions_dict.values():
             u, v = a["link"]
 
             # reward
@@ -490,16 +490,16 @@ class GraphEnvPower:
                 # update flow rate
                 self.flows_rate[f] = np.min([self.flows_rate[f], flow_rates[i]])  # if self.flows_rate[f] != 0 else flow_rates[i]
 
-        reward += np.max(transmission_durations) * 0.1
+        #reward += np.max(transmission_durations) * 0.1
 
         # 3. reset & save interferences for next global step
-        self.cumulative_link_interference += self.current_link_interference
+        self.cumulative_link_interference += self.current_link_interference # addition is becaouse at the end packet are transimted over all links simuteniasly (each step is only one hop)
         self.current_link_interference = np.zeros_like(self.current_link_interference)
         self.current_link_capacity = self.bandwidth_edge_list.copy()
 
         return reward
 
-    def __simulate_global_step(self, action, eval_path=False):
+    def __simulate_global_transmission(self, action, eval_path=False):
         """ simulate transmission of all flows from src->dst and get reward """
         self.allocated.append(action)
 
@@ -516,11 +516,11 @@ class GraphEnvPower:
         for i in range(len(current_action) - 1):
             self.num_sps[self.eids[(current_action[i], current_action[i + 1])]] += 1
 
-        max_path_length = max([len(p) for p in allocated_paths])
+        max_path_length = max([len(p) for p in allocated_paths]) #the longest routing allocated
 
         reward = 0
         influence_reward = 0
-        for i in range(max_path_length - 1):    #iterate over all links which has an active flow transimiting on it
+        for i in range(max_path_length - 1):    
             step_action = []  
             active_flows = []
             for j, p in enumerate(allocated_paths):
@@ -562,7 +562,7 @@ class GraphEnvPower:
         """
 
         # simulate transmission of all flows from src->dst and get reward
-        reward = self.__simulate_global_step(action, eval_path=eval_path)
+        reward = self.__simulate_global_transmission(action, eval_path=eval_path)
 
         # next state
         next_state = self.__get_observation()
@@ -578,7 +578,7 @@ class GraphEnvPower:
         """
 
         # simulate transmission of all flows from src->dst and get reward
-        reward = self.__simulate_global_step(action)
+        reward = self.__simulate_global_transmission(action)
 
         return reward
 
@@ -636,8 +636,8 @@ if __name__ == "__main__":
 
     # flow demands
     F = [
-        {"source": 0, "destination": 3, "packets": 50, "time_constrain": 10},
-        {"source": 0, "destination": 3, "packets": 10000, "time_constrain": 10}
+        {"source": 0, "destination": 3, "packets": 50000, "time_constrain": 10},
+        {"source": 0, "destination": 3, "packets": 50000, "time_constrain": 10}
     ]
 
     env = GraphEnvPower(adjacency_matrix=A,
@@ -653,37 +653,9 @@ if __name__ == "__main__":
     possible_actions = free_paths.copy()
     #pprint(free_paths)
 
-    # best_score = -sys.maxsize
-    # best_routs = []
-    # best_action = -1
-    # for i in range(action_size):
-    #     for j in range(action_size):
-    #         state_debug = env.reset() # interfernce map = state_debug[0][:,:,0]
-    #         reward = 0
-    #         a0 = [0, i]
-    #         state_debug, r = env.step(action=a0)
-    #         reward += r
-    #         a1 = [1, j]
-    #         state_debug, r = env.step(action=a1)
-    #         reward += r
-    #         routs = [possible_actions[i], possible_actions[j + action_size]]
-    #         print(
-    #             f"action {[i, j]} with routs {routs} -> reward: {reward} (rates: {env.get_rates_data()['rate_per_flow']}, delay: {env.get_delay_data()['delay_per_flow']})")
-
-    #         if reward > best_score:
-    #             best_score = reward
-    #             best_routs = routs.copy()
-    #             best_action = [i, j]
-
-    # print("*****************************")
-    # print("Optimal Solution:")
-    # print(f"action {best_action} with routs {best_routs} -> reward: {best_score}")
-
-
     reward = 0
-    adj_matrix, edges, free_paths, free_paths_idx, normalized_demand = env.reset()
     
-    i = 0 
+    i = 0
     raz_decision_1 = [0,i]
     state_debug, r = env.step(action=raz_decision_1)
     reward += r
