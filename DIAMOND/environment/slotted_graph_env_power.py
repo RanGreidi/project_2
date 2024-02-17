@@ -1,120 +1,134 @@
-
 import networkx as nx
-from matplotlib import pyplot as plt
-
-import sys
-sys.path.insert(0, 'DIAMOND')
 import numpy as np
-from pprint import pprint
-from environment.utils import get_k_paths, link_queue_history_using_mac_protocol, init_seed, calc_transmission_rate
+import random
+import sys
+from matplotlib import pyplot as plt
+from utils import one_link_transmission,get_k_paths,plot_graph
+
+import torch
+from torch_geometric.utils.convert import from_networkx
 
 
-class GraphEnvPower:
+class SlottedGraphEnvPower:
     """
-        TODO: update description
-
-        Class represents the graph environment for Combinatorial Optimization. G=(V,E) directed-weighted graph
-        All flow demands are received together and to be allocated at once
-
-        Inputs:
-        graph topology
-        @param adjacency_matrix: |V|x|V| binary matrix
-        @param bandwidth_matrix : |V|x|V| int matrix
-        @param interference_matrix: |V|x|V| matrix of edge lists as pairs (u,v)
-        @param node_positions: (optional) node's geographic position: |V|x2 np.array tuples (x, y)
-        @param flows: list on flow demands {(s_i, d_i, p_i, t_i)}_i=1^F
-        @param k: action size - k possible transmission routs
-
-        1. Simulates transmission of each flow on the graph
-        2. Returns reward(score) for the choice
-        """
-
+    """
     def __init__(self,
                  adjacency_matrix,
                  bandwidth_matrix,
-                 interference_matrix,
                  node_positions,
                  flows,
                  k,
-                 reward_balance=0.8,
-                 seed=37,
-                 direction="minimize",
-                 normalize_capacity=True,
                  received_interference_map=None,
+                 normalize_capacity=True,
+                 render_mode = True,
+                 seed=42,
                  **kwargs):
-        super(GraphEnvPower, self).__init__()
-
-        self.seed = seed
-        init_seed(seed)
+        # seed
+        np.random.seed(seed)
+        np.random.RandomState(seed)
+        random.seed(seed)
 
         # received
+        self.flows = flows
         self.adjacency_matrix = adjacency_matrix
         self.bandwidth_matrix = bandwidth_matrix
-        self.binary_interference_matrix = interference_matrix if interference_matrix is not None else np.ones(
-            adjacency_matrix.shape)
-        self.flows = flows
-        self.node_positions = np.array(node_positions)
+        self.node_positions = node_positions
         self.k = k  # action size (k paths to choose from)
-        self.kwargs = kwargs
-        self.reward_balance = reward_balance
-        self.normalize_capacity = normalize_capacity
         self.received_interference_map = received_interference_map
-        self.direction = direction
+        self.normalize_capacity = normalize_capacity
+        self.seed = seed
+        self.kwargs = kwargs
 
         # attributes
         self.graph: nx.DiGraph
-        self.graph_pos = None  # dict(int: np.array)
+        self.graph_pos = None
         self.nodes = None
         self.num_nodes = None
         self.num_edges = None
         self.num_flows = len(self.flows)
 
         self.max_capacity = np.max(self.bandwidth_matrix)
-        self.max_demand = np.max([f["packets"] for f in self.flows])
+        self.demands = np.array([f["packets"] for f in self.flows])
+        self.max_demand = np.max(self.demands)
 
         self.possible_actions = [[] for _ in range(len(self.flows))]
-        self.history = []
-        self.allocated = []  # A list, each element corespond to the rout assigned to each flow. ([rout] mean flow 0 assign with rout, and 1 is unassigned)
+        self.allocated = []
         self.prev_reward = None
-        self.flows_delay = [0 for _ in range(len(self.flows))]
-        self.flows_rate = [0 for _ in range(len(self.flows))]
+        
+        self.routing_metrics = dict(rate=dict(rate_per_flow=self.demands.copy()),
+                                    delay=dict(end_to_end_delay_per_flow=np.zeros(self.num_flows)))
 
-        # data
-        self.node_feature_size = 2
-        self.edge_feature_size = 3
-
-        self.path_bank = dict()
-
+        
+        self.path_bank = dict() 
+        
         # graph data
         self.interference_map = None
         self.current_link_interference = None
         self.links_length = None
         self.cumulative_link_interference = None
+        self.current_link_interference_list_4EachTimeStep = None
+        self.current_link_capacity_list_4EachTimeStep = None
         self.current_link_capacity = None
-        #self.current_link_queue = None
+        self.current_link_queue = None
         self.bandwidth_edge_list = None
-        self.demands = None
         self.last_action = np.zeros_like(self.adjacency_matrix)
+        self.trx_power = None
 
-        # for tf env
-        self.tf_env = False
-        self.num_sps = None
-        self.firsts = []
-        self.seconds = []
-        self.gen_first_second()
+        self.eids = dict()
+        self.id_to_edge = []
 
+        self.render_mode = render_mode
         # initialization once
         self.__create_graph()
         self.__calc_possible_actions()
-        self.flows_bottleneck = self.__calc_flows_bottleneck()
 
-    def gen_first_second(self):
-        for i, u in enumerate(self.adjacency_matrix):
-            for j, v in enumerate(u):
-                if v != 0:
-                    self.firsts.append(i)
-                    self.seconds.append(j)
+    def __create_graph(self):
+        """
+        Create communication graph
+        Edges contains metadata of the network's state
+        """
+        # create graph
+        G = nx.from_numpy_matrix(self.adjacency_matrix, create_using=nx.DiGraph)
+        # assign attributes
+        self.graph = G
+        self.nodes = list(G.nodes)
+        self.num_nodes = G.number_of_nodes()
+        self.num_edges = G.number_of_edges()
 
+        # calc interference_map
+        self.gen_edge_data()
+        self.init_edge_data()
+
+    def show_graph(self, active_links, total_time_slots, show_fig=True):
+        """ draw global graph"""
+        label_dict = {}
+        
+        #add flows to graph
+        for a in active_links:
+            u,v = a['link']
+            if (u,v) in label_dict:
+                label_dict[(u,v)] += (f"\n flow_idx: {a['flow_idx']} \n remaining packet: {a['packets']}")
+            else:
+                label_dict.update({(u,v): f"flow_idx: {a['flow_idx']} \n remaining packet: {a['packets']}"})
+        
+        #add capacity matrix to graph
+        current_link_capacity_mat = self.edge_list_to_adj_mat(self.current_link_capacity)
+        for u in range(self.num_nodes):
+            for v in range(self.num_nodes):
+                if u != v:
+                    if (u,v) in label_dict:
+                        label_dict[(u,v)] += (f"\n Capacity: {current_link_capacity_mat[u,v]}")
+
+        #add bandwidth matrix to graph
+        bandwidth = self.edge_list_to_adj_mat(self.bandwidth_edge_list)
+        for u in range(self.num_nodes):
+            for v in range(self.num_nodes):
+                if u != v:
+                    if (u,v) in label_dict:
+                        label_dict[(u,v)] += (f"\n Total channel Bandwidth: {bandwidth[u,v]}")
+        
+        plot_graph(self.graph, self.graph_pos, label_dict, total_time_slots)
+        
     def gen_edge_data(self):
         self.eids = dict()
         self.id_to_edge = []
@@ -122,6 +136,7 @@ class GraphEnvPower:
         self.link_pos = []
         self.links_length = []
         self.graph_pos = dict()
+        # self.link_metadata = dict()
         spring_pos = nx.spring_layout(self.graph)
         id = 0
         for u in range(self.num_nodes):
@@ -158,11 +173,28 @@ class GraphEnvPower:
         self.interference_map = np.zeros((L, L))
         self.current_link_interference = np.zeros(L)
         self.cumulative_link_interference = np.zeros(L)
-        #self.current_link_queue = np.zeros(self.num_edges)
         self.current_link_capacity = self.bandwidth_edge_list.copy()
-        self.num_sps = np.zeros(self.num_edges // 2)
         self.trx_power = self._init_transmission_power()
 
+
+        # ---- raz new implementaion, interference map not caculated according to link pos---
+        # if self.received_interference_map is not None:
+        #     raise NotImplementedError("TODO: implement recieved_interference_map")
+        # else:
+        #     for l1 in range(L):
+        #         for l2 in range(l1 + 1, L):
+        #             trans_1, rec_1 = self.id_to_edge[l1]
+        #             trans_2, rec_2 = self.id_to_edge[l2]
+        #             r12 = np.linalg.norm(self.graph_pos[trans_1] - self.graph_pos[rec_2]) * 1e1  # distance [km]
+        #             r21 = np.linalg.norm(self.graph_pos[trans_2] - self.graph_pos[rec_1]) * 1e1  # distance [km]
+        #             # I_{i,j} = interference power at the receiver of node j
+        #             # TODO: currently only spherical interference is implemented.
+        #             #     need to extent do directional antennas
+        #             if r12 > sys.float_info.epsilon:
+        #                 self.interference_map[l1, l2] = self.trx_power[l1] / (r12 ** 2)
+        #             if r21 > sys.float_info.epsilon:
+        #                 self.interference_map[l2, l1] = self.trx_power[l2] / (r21 ** 2)
+        
         if self.received_interference_map is not None:
             for l1 in self.received_interference_map:
                 for l2 in self.received_interference_map[l1]:
@@ -176,49 +208,12 @@ class GraphEnvPower:
                     r = np.linalg.norm(self.link_pos[l1] - self.link_pos[l2]) * 1e1  # distance [km]
                     if r > sys.float_info.epsilon:
                         self.interference_map[l1, l2] = self.trx_power[l1] / (r ** 2)
-                        self.interference_map[l2, l1] = self.trx_power[l2] / (r ** 2)
-
-    def __create_graph(self):
-        """
-        Create communication graph
-        Edges and nodes contains metadata of the network's state
-        """
-        # create graph
-        G = nx.from_numpy_matrix(self.adjacency_matrix, create_using=nx.DiGraph)
-        # assign attributes
-        self.graph = G
-        self.nodes = list(G.nodes)
-        self.num_nodes = G.number_of_nodes()
-        self.num_edges = G.number_of_edges()
-
-        # calc interference_map
-        self.gen_edge_data()
-        self.init_edge_data()
-
-    def show_graph(self, show_fig=True):
-        """ draw global graph"""
-        save_fig = True
-        plt.figure()
-        nx.draw_networkx(self.graph, self.graph_pos, with_labels=True, node_color="tab:blue")
-        plt.axis('off')
-        if show_fig:
-            plt.show()
-        if save_fig:
-            plt.savefig('graph.png')
-
-    def __init_links(self):
-        """init links at env.reset"""
-        self.current_link_interference = np.zeros_like(self.current_link_interference)
-        self.cumulative_link_interference = np.zeros_like(self.cumulative_link_interference)
-        self.current_link_capacity = self.bandwidth_edge_list.copy()
-        #self.current_link_queue = np.zeros_like(self.current_link_queue)
-        self.last_action = np.zeros_like(self.last_action)
-        self.flows_delay = np.zeros_like(self.flows_delay)
-        self.flows_rate = np.array( [np.min(f + [self.flows[i]["packets"]]) for i, f in enumerate(self.flows_bottleneck)]  )
-        self.num_sps = np.zeros_like(self.num_sps)
-        self.trx_power = self._init_transmission_power()
+                        self.interference_map[l2, l1] = self.trx_power[l2] / (r ** 2)   
 
     def _init_transmission_power(self):
+        """
+        set the transmission power
+        """
         L = self.num_edges // 2
         power_mode = self.kwargs.get('trx_power_mode', 'equal')
         assert power_mode in ('equal', 'rayleigh', 'rayleigh_gain', 'steps'), f'Invalid power mode. got {power_mode}'
@@ -237,7 +232,7 @@ class GraphEnvPower:
             trx_power[np.where(self.links_length < rng * 1 / 3)] = 1/3
             trx_power[np.where((self.links_length >= rng * 1 / 3) & (self.links_length < rng * 2 / 3))] = 2/3
         return trx_power
-
+    
     def __calc_possible_actions(self):
         """ store possible routs into self.possible_actions for each flow"""
         for i, flow in enumerate(self.flows):
@@ -270,50 +265,228 @@ class GraphEnvPower:
                 # 5. add to path bank
                 self.path_bank[(flow["source"], flow["destination"])] = paths
 
-    def calc_bottleneck(self, path, return_idx=False):
-        path_capacities = [self.current_link_capacity[self.eids[path[j], path[j + 1]]] for j in range(len(path) - 1)]
-        idx = np.argmin(path_capacities)
-        min_val = path_capacities[idx]
-        if return_idx:
-            return min_val, idx
-        return min_val
+    def __init_links(self):
+        """init links at env.reset"""
+        self.current_link_interference = np.zeros_like(self.current_link_interference)
+        self.cumulative_link_interference = np.zeros_like(self.cumulative_link_interference)
+        self.current_link_capacity = self.bandwidth_edge_list.copy()
+        self.last_action = np.zeros_like(self.last_action)
+        self.trx_power = self._init_transmission_power()
+        self.current_link_interference_list_4EachTimeStep = []
+        self.current_link_capacity_list_4EachTimeStep = []
 
-    def __calc_flows_bottleneck(self):
-        bank = [[self.calc_bottleneck(path) for path in r] for r in self.possible_actions]
-        return bank
+    def __update_interference(self, s, d):
+        """ update interference due to transmission s->d
+            Capacity of each link over the same channel is effected:  capacity = bandwidth*log2(1+SNR)
+            
+            update interference due to transmission s->d, effects all edges except (s->*) and (d->s)
+            Interference is calculated by 1/(r**2), where r is the distance between two *links*
+            Capacity of each link is effected:  capacity = bandwidth*log2(1+SNR) assuming unit transmission power
+            
+            {self.current_link_interference is a vector with the total interference from all link for each link.
+            example: link 0 tot interfernece is at self.current_link_interference[0]
+            same goes for self.current_link_capacity}
+        """
 
-    def get_delay_data(self, action_idx=True):
-        if action_idx:
-            routs = self.get_routs(sorted(self.allocated, key=lambda x: x[0]))
+        trx_power = self.trx_power[self.eids[s, d]]  # P_l
+        self.current_link_interference += self.interference_map[self.eids[s, d]]  # I_l
+        sinr = trx_power / (self.current_link_interference + 1)  # SINR_l
+        self.current_link_capacity = np.minimum(self.bandwidth_edge_list, np.maximum(1, np.floor(self.bandwidth_edge_list * np.log2(1 + sinr))))
+
+    def _transmit_singe_timestep(self, active_links , total_time_slots):
+        """ send packet over all links in active_links for a single time-step """
+        active_flows_idx = [l['flow_idx'] for l in active_links]
+        action_dict = {}
+        for l1 in range(len(active_links)):
+            shared_resource = dict(link=active_links[l1]['link'],
+                                   packets=[active_links[l1]['packets']],
+                                   flows_idxs=[active_links[l1]['flow_idx']])
+            for l2 in range(l1+1, len(active_links)):
+                # find transmission over the same link
+                if active_links[l2]['link'] == active_links[l1]['link']:
+                    shared_resource['packets'].append(active_links[l2]['packets'])
+                    shared_resource['flows_idxs'].append(active_links[l2]['flow_idx'])
+            if str(shared_resource['link']) not in action_dict.keys():
+                action_dict[str(shared_resource['link'])] = shared_resource
+
+        # 1. update interference on the link
+        for a in action_dict.values():
+            u = a["link"][0]
+            v = a["link"][1]
+
+            # update links interference due to transmission u->v
+            self.__update_interference(u, v)
+
+        # 2. calculate rewards (influence on others, want to *minimize*)
+        next_active_links = []
+        metadata = dict(capacity_reduction=[], interference=[])
+        for a in action_dict.values():
+            # metadata
+            capacity = self.current_link_capacity[self.eids[a['link']]]
+            bandwidth = self.bandwidth_edge_list[self.eids[a['link']]]
+            capacity_reduction = (bandwidth - capacity) / bandwidth
+            metadata['capacity_reduction'].append(capacity_reduction)
+            metadata['interference'].append(self.current_link_interference[self.eids[a['link']]])
+            
+
+            # share link's resource
+            remaining_packets = one_link_transmission(capacity, a['packets'])  # packets remained at transmit for the next time-step over (u, v)
+            advanced_packets = [p-r for p, r in zip(a['packets'], remaining_packets)]  # packets to transmit over (v, w)
+
+            # flows advancing to the next hop
+            for idx, pkt in enumerate(advanced_packets): # this loop is for the case two flows share the same link, than advanced_packets is a list
+                flow_idx = a['flows_idxs'][idx]
+                flow = self.flows[flow_idx]
+                u, v = a['link']  # current hop
+                v_pos = flow['path'].index(v)
+                if v_pos < len(flow['path']) - 1:
+                    next_hop = (flow['path'][v_pos], flow['path'][v_pos+1])
+                    exist_flow = list(filter(lambda x: x[1]['flow_idx'] == flow_idx and x[1]['link'] == next_hop,
+                                             enumerate(next_active_links))) # filters next_active_links according to conditions in lambda
+                    if exist_flow:
+                        next_active_links[exist_flow[0][0]]['packets'] += pkt
+                    else:
+                        next_active_links.append(dict(flow_idx=flow_idx,
+                                                      link=next_hop,
+                                                      packets=pkt))
+
+            # flows staying in the current hop for the next time stamp
+            for idx, pkt in enumerate(remaining_packets):
+                    flow_idx = a['flows_idxs'][idx]
+                    if pkt > 0:
+                        exist_flow = list(filter(
+                            lambda x: x[1]['flow_idx'] == flow_idx and x[1]['link'] == a['link'],
+                            enumerate(next_active_links)))
+                        if exist_flow:
+                            next_active_links[exist_flow[0][0]]['packets'] += pkt
+                        else:
+                            next_active_links.append(dict(flow_idx=flow_idx,
+                                                          link=a['link'],
+                                                          packets=pkt))
+
+            # update rate metric
+            for flow_idx in a['flows_idxs']:
+                availible_resource = capacity / len(a['packets'])
+                self.routing_metrics['rate']['rate_per_flow'][flow_idx] = np.min([self.routing_metrics['rate']['rate_per_flow'][flow_idx], availible_resource])
+       
+        # update list for all links interefences in order to avarge later
+        self.current_link_interference_list_4EachTimeStep.append(self.current_link_interference)
+        self.current_link_capacity_list_4EachTimeStep.append(self.current_link_capacity)
+        
+        # update delay metric
+        for flow_idx in active_flows_idx:
+            self.routing_metrics['delay']['end_to_end_delay_per_flow'][flow_idx] += 1
+
+        # 3. plot & reset & save interferences for next global step
+        if self.render_mode: 
+            self.show_graph(active_links, total_time_slots)
+        if next_active_links:
+            #self.cumulative_link_interference += self.current_link_interference
+            if np.mean(self.current_link_interference) > np.mean(self.cumulative_link_interference):
+                self.cumulative_link_interference = self.current_link_interference
+            self.current_link_interference = np.zeros_like(self.current_link_interference)
+            self.current_link_capacity = self.bandwidth_edge_list.copy()
+
+        return next_active_links, metadata
+
+    def __simulate_global_transmission(self, action, eval_path=False):
+        """ simulate transmission of all flows from src->dst and get reward
+        @input: action - [[rout],[rout],[rout]] example:[[0,3],[0,1,3]]
+        @output: 
+        """
+        self.allocated.append(action)
+
+        if not eval_path:
+            allocated_paths = [self.possible_actions[a[0]][a[1]] for a in sorted(self.allocated, key=lambda x: x[0])]
         else:
-            routs = [a[1] for a in self.allocated]
-        per_flow_delay_above_optimal = [d - (len(r) - 1) for d, r in zip(self.flows_delay, routs)]
-        delay_data = {
-            "mean_delay": np.mean(self.flows_delay),
-            "delay_per_flow": self.flows_delay,
-            "above_optimal_delay_per_flow": per_flow_delay_above_optimal,
-            "mean_delay_above_optimal": np.mean(per_flow_delay_above_optimal),
-            "total_excess_delay": sum(per_flow_delay_above_optimal)
-        }
-        return delay_data
+            allocated_paths = [a[1] for a in sorted(self.allocated, key=lambda x: x[0])]
+        
+        #   update flows in env.flows that were allocated so far
+        for i, allocated_path in enumerate(allocated_paths):
+            self.flows[i].update({'path':allocated_path})
+        #   active_flows is a list of tuples with (flow_indx,rout) of all active flows. 
+        #   it does not change throughut a step. each episode it appends one more flow
+        active_flows = [(a[0], self.flows[a[0]]) for a in self.allocated] 
+        #   after new action is appended to self.alocated, the path of the flow is added to self.flows
+
+
+        #active_links is a list of dicts with srs,dst,rout,packet. it changes throughut an episode
+        active_links = [dict(flow_idx=f_idx,
+                             link=(f['path'][0], f['path'][1]),
+                             packets=f['packets'])
+                        for i, (f_idx, f) in enumerate(active_flows)]
+
+        total_time_slots = 0
+        metadata = []
+        while active_links:
+            # transmit single hop for all flows
+            active_links, hop_metadata = self._transmit_singe_timestep(active_links, total_time_slots)
+            metadata.append(hop_metadata)
+            total_time_slots += 1
+            
+
+        # introduce selected action into the graph
+        p = self.possible_actions[action[0]][action[1]] if not eval_path else action[1]
+        for i in range(len(p) - 1):
+            self.last_action[p[i], p[i + 1]] = 1
+
+        # calc reward
+        reward = self.calc_reward(metadata)
+
+        # routing metrics are re-calculated with each new flow allocation
+        if len(self.allocated) < self.num_flows:
+            self.routing_metrics = dict(rate=dict(rate_per_flow=self.demands.copy()),
+                                        delay=dict(end_to_end_delay_per_flow=np.zeros(self.num_flows)))
+        return reward
+    
+    def calc_reward(self, metadata):
+
+        avg_flow_rate = np.sum([self.routing_metrics['rate']['rate_per_flow'][a[0]] for a in self.allocated]) / len(self.allocated)
+        avg_excess_delay = np.sum([self.routing_metrics['delay']['end_to_end_delay_per_flow'][a[0]] - (len(self.flows[a[0]]['path']) - 1) for a in self.allocated]) / len(self.allocated)
+        
+        capacity_reduction = np.sum([np.mean(m['capacity_reduction']) for m in metadata])
+        interference_on_others = np.sum([np.mean(m['interference']) for m in metadata]) # For each link, we calc the avg of its interfernce from other throughout all timesteps, than sum for all links
+
+        rate_weight = self.kwargs.get('reward_weights', dict()).get('rate_weight', 1)
+        delay_weight = self.kwargs.get('reward_weights', dict()).get('delay_weight', 0)
+        interference_weight = self.kwargs.get('reward_weights', dict()).get('interference_weight', 0)
+        capacity_reduction_weight = self.kwargs.get('reward_weights', dict()).get('capacity_reduction_weight', 0)
+                    
+        # # reward   =   alpha*(avg_flow_rate) - beta*(avg_excess_delay) - gama*(interference_on_others) - delta*(capacity_reduction) 
+        # reward = rate_weight * rate_reward - delay_weight * avg_excess_delay \
+        #          - interference_weight * interference_on_others - capacity_reduction_weight * capacity_reduction    
+        
+        #--- for raz old ver comparision
+        delay = self.routing_metrics['delay']['end_to_end_delay_per_flow'][self.allocated[-1][0]] # may not be same as raz old ver
+        rate_reward = self.routing_metrics['rate']['rate_per_flow'][self.allocated[-1][0]] /  self.flows[self.allocated[-1][0]]['packets']
+        reward = rate_weight * rate_reward + (1 - rate_weight) * interference_on_others
+        #---
+
+        if self.kwargs.get('direction', 'maximize') == 'minimize':
+            reward *= -1
+
+        if self.kwargs.get('telescopic_reward'):
+            if self.prev_reward is not None:
+                tmp = reward
+                reward = reward - self.prev_reward
+                self.prev_reward = tmp
+            else:
+                self.prev_reward = reward
+
+        return reward
+
+    def get_delay_data(self):
+        data = self.routing_metrics.get('delay')
+        data['excess_delay_per_flow'] = [data['end_to_end_delay_per_flow'][i] - (len(f['path']) - 1) for i, f in enumerate(self.flows)]
+        data['total_excess_delay'] = np.sum(data.get('excess_delay_per_flow'))
+        data['avg_end_to_end_delay'] = np.mean(data.get('end_to_end_delay_per_flow'))
+        data['end_to_end_delay_per_flow'] = data['end_to_end_delay_per_flow']
+        return data
 
     def get_rates_data(self):
-        rates_data = {
-            "rate_per_flow": self.flows_rate,
-            "sum_flow_rates": np.sum(self.flows_rate),
-            "sum_log_flow_rates": np.sum(np.log(np.maximum(1, self.flows_rate))),
-        }
-        return rates_data
-
-    def get_state_space(self):
-        """ return possible actions indices"""
-        return [[i for i, _ in enumerate(a)] for a in self.possible_actions]
-
-    def set_direction(self, direction):
-        self.direction = direction
-
-    def set_tf_env(self, state=False):
-        self.tf_env = state
+        data = self.routing_metrics.get('rate')
+        data['avg_flow_rate'] = np.mean(data.get('rate_per_flow'))
+        return data
 
     def edge_list_to_adj_mat(self, lst):
         mat = np.zeros((self.num_nodes, self.num_nodes))
@@ -323,6 +496,16 @@ class GraphEnvPower:
             mat[v, u] = l
         return mat
 
+    def path_length(self, flow_idx):
+        return len(self.flows[flow_idx]['path']) - 1
+
+    def path_link_indexes(self, flow_idx):
+        path = self.flows[flow_idx]['path']
+        dual_path = []
+        for i in range(len(path) - 1):
+            dual_path.append(self.eids[path[i], path[i+1]])
+        return dual_path
+
     def __get_observation(self):
         """ returns |V|x|V|xd matrix representing the graph
         
@@ -331,11 +514,19 @@ class GraphEnvPower:
         free_paths:       a list, with all posible routs to assign, for each flow that has not been assign with a rout:
                           the first (action_size) elements are the posible routs for the first flow, the second (action_size) elemnts are the posible routs for the second flow, and so on.
         """
-
         # interference
-        interference = self.edge_list_to_adj_mat(self.cumulative_link_interference)
+        if self.current_link_interference_list_4EachTimeStep:
+            interference = self.edge_list_to_adj_mat(np.mean(self.current_link_interference_list_4EachTimeStep, axis=0))
+        else: 
+            interference = np.zeros((self.num_nodes,self.num_nodes))
+        
         # capacity
-        normalized_capacity = self.edge_list_to_adj_mat(self.current_link_capacity)
+        #normalized_capacity = self.edge_list_to_adj_mat(self.current_link_capacity)
+        if self.current_link_capacity_list_4EachTimeStep:
+            normalized_capacity = self.edge_list_to_adj_mat(np.mean(self.current_link_capacity_list_4EachTimeStep, axis=0))
+        else: 
+            normalized_capacity = np.zeros((self.num_nodes,self.num_nodes))            
+
         if self.normalize_capacity:
             normalized_capacity = np.divide(normalized_capacity, self.bandwidth_matrix,
                                             out=np.zeros_like(normalized_capacity), where=self.bandwidth_matrix != 0)
@@ -364,248 +555,39 @@ class GraphEnvPower:
         # demand
         normalized_demand = np.array(demand).astype(np.float32) / self.max_demand
 
-        if self.tf_env:
-            return self.__get_tf_state()
+        # if self.tf_env:
+        #     return self.__get_tf_state()
 
         return state_matrixes, edges, free_paths, free_paths_idx, normalized_demand
-
-    def __get_tf_state(self):
-        """
-        :return: state for DQN+GNN agent (tf)
-        """
-        norm_capacity = (np.array(self.current_link_capacity) - self.max_capacity // 2) / self.max_capacity
-        betweenes = np.array(self.num_sps) / (((2.0 * self.num_nodes * (self.num_nodes - 1) * self.k) + 0.00000001))
-
-        last_action = np.zeros((self.num_edges // 2, 3))
-        for i, u in enumerate(self.last_action):
-            for j, v in enumerate(u):
-                if v:
-                    last_action[self.eids[(i, j)]][0] = 1
-
-        obs = np.concatenate([
-            norm_capacity.reshape(-1, 1),
-            betweenes.reshape(-1, 1),
-            last_action,
-            np.zeros((self.num_edges // 2, 15))
-        ], axis=1)
-
-        gids = np.array([0] * (self.num_edges // 2))
-
-        return obs, gids, np.array(self.firsts), np.array(self.seconds), self.num_edges // 2
-
+    
     def reset(self):
         """ reset environment """
-        self.history = []
         self.__init_links()
         self.prev_reward = None
         self.allocated = []
+        self.routing_metrics = dict(rate=dict(rate_per_flow=self.demands.copy()),
+                                    delay=dict(end_to_end_delay_per_flow=np.zeros(self.num_flows)))
         observation = self.__get_observation()
         return observation
 
-    def __update_interference(self, s, d):
-        """ update interference due to transmission s->d, effects all edges except (s->*) and (d->s)
-            Interference is calculated by 1/(r**2), where r is the distance between two *links*
-            Capacity of each link is effected:  capacity = bandwidth*log2(1+SNR) assuming unit transmission power
-        """
-
-        trx_power = self.trx_power[self.eids[s, d]]  # P_l
-        self.current_link_interference += self.interference_map[self.eids[s, d]]  # I_l
-        sinr = trx_power / (self.current_link_interference + 1)  # SINR_l
-        self.current_link_capacity = np.minimum(self.bandwidth_edge_list, np.maximum(1, np.floor(self.bandwidth_edge_list * np.log2(1 + sinr))))
-
-    def __single_local_step(self, u, v, packets):
-        """send packet (destined to d) from node u to node v
-
-        @param u: node sending the packet
-        @param v: node receiving the packet
-        @param packets: list of number of packets to be sent on each flow number of flows that want to send through the link (u,v)
-        """
-
-        eid = self.eids[(u, v)]
-        link_attr = {"capacity": self.current_link_capacity[eid],
-                     "interference": self.current_link_interference[eid]}
-
-        # 1. calc how many (local) time-steps needed to transmit the necessary packets
-        link_mac = link_queue_history_using_mac_protocol(link_attr["capacity"], packets)
-        num_transmissions = len(link_mac)
-        num_transmissions_per_flow = np.count_nonzero(link_mac, axis=0)
-        flow_rates = calc_transmission_rate(link_mac)
-        assert len(flow_rates) == len(
-            packets), f"rates: {flow_rates}, packets: {packets}, capacity: {link_attr['capacity']}"
-
-        # # 2. add packets to link's queue
-        # self.current_link_queue[(eid * 2 - int(u < v)) % self.num_edges] += sum(packets)
-
-        # 3. reward depends on capacity of the link
-        # TODO: update reward mechanism
-        capacity_reduction = (self.bandwidth_edge_list[eid] - link_attr['capacity']) / self.bandwidth_edge_list[eid]
-        reward = 1 * capacity_reduction + \
-                 1 * link_attr['interference']
-
-        if self.direction == "maximize":
-            reward *= -1
-
-        return reward, num_transmissions, num_transmissions_per_flow, flow_rates
-
-    def __global_step_helper(self, actions, active_flows, update_delay=False):
-        """send packet (destined to d) from node u to node v
-
-        @param action: |F|x2 matrix, rows=flows, columns=(u,v)
-        """
-        reward = 0
-
-        actions_dict = {}
-        for a in actions:
-            idxs = [idx for idx, b in enumerate(actions) if b == a]  # all occurrences of link (u,v)
-            packets = [self.flows[active_flows[i]]["packets"] for i in idxs]  # list of packets want to be sent over link (u,v)
-            sorted_packets = [(idxs[j], packets[j]) for j, _ in enumerate(packets)]
-            sorted_flows = [active_flows[x[0]] for x in sorted_packets]
-            sorted_packets = [x[1] for x in sorted_packets]
-            actions_dict[str(a)] = {"link": a, "packets": sorted_packets, "flows": sorted_flows}
-
-        # 1. transmit on one link for all flows and update interference on the links
-        for a in actions_dict.values():
-            u = a["link"][0]
-            v = a["link"][1]
-
-            # update links interference due to transmission u->v
-            self.__update_interference(u, v)
-
-        # 2. calculate rewards (influence on others, want to *minimize*)
-        transmission_durations = []
-        for a in actions_dict.values():
-            u, v = a["link"]
-
-            # reward
-            r, duration, num_transmissions_per_flow, flow_rates = self.__single_local_step(u, v, a["packets"])
-            reward += r
-            transmission_durations.append(duration)
-
-            # metrics
-            for i, f in enumerate(a['flows']):
-                # update flows delay
-                if update_delay:
-                    self.flows_delay[f] += num_transmissions_per_flow[i]
-
-                # update flow rate
-                self.flows_rate[f] = np.min([self.flows_rate[f], flow_rates[i]])  # if self.flows_rate[f] != 0 else flow_rates[i]
-
-        #reward += np.max(transmission_durations) * 0.1
-
-        # 3. reset & save interferences for next global step
-        self.cumulative_link_interference += self.current_link_interference # addition is becaouse at the end packet are transimted over all links simuteniasly (each step is only one hop)
-        self.current_link_interference = np.zeros_like(self.current_link_interference)
-        self.current_link_capacity = self.bandwidth_edge_list.copy()
-
-        return reward
-
-    def __simulate_global_transmission(self, action, eval_path=False):
-        """ simulate transmission of all flows from src->dst and get reward """
-        self.allocated.append(action)
-
-        # all routs that are currently allocated in the network
-        if not eval_path:
-            allocated_paths = [self.possible_actions[a[0]][a[1]] for a in sorted(self.allocated, key=lambda x: x[0])]
-        else:
-            allocated_paths = [a[1] for a in sorted(self.allocated, key=lambda x: x[0])]
-
-        # update betweenes values
-        # takes the last allocated path, and updates all the links it is transmiting on.
-        # current_action is the last allocated path according to action inserted to the env
-        current_action = allocated_paths[-1]
-        for i in range(len(current_action) - 1):
-            self.num_sps[self.eids[(current_action[i], current_action[i + 1])]] += 1
-
-        max_path_length = max([len(p) for p in allocated_paths]) #the longest routing allocated
-
-        reward = 0
-        influence_reward = 0
-        for i in range(max_path_length - 1):    
-            step_action = []  
-            active_flows = []
-            for j, p in enumerate(allocated_paths):
-                if i < len(p) - 1:
-                    step_action.append([p[i], p[i + 1]])
-                    active_flows.append(self.allocated[j][0])
-            # reward for influence on others, want to *minimize*
-            influence_reward += self.__global_step_helper(step_action, active_flows,
-                                                          update_delay=len(allocated_paths) == len(self.flows))
-
-        # self reward (want to *maximize*)
-        current_flow, current_rout = action
-        rate_reward = self.flows_rate[current_flow] / self.flows[current_flow]['packets']
-        # inverse reward for gradient ascent / decent
-        if self.direction == "maximize":
-            rate_reward *= -1
-
-        alpha = self.reward_balance
-        reward = alpha * rate_reward + (1 - alpha) * influence_reward
-
-        # introduce selected action into the graph
-        p = self.possible_actions[action[0]][action[1]] if not eval_path else action[1]
-        for i in range(len(p) - 1):
-            self.last_action[p[i], p[i + 1]] = 1
-
-        if self.prev_reward is not None:
-            tmp = reward
-            reward = reward - self.prev_reward
-            self.prev_reward = tmp
-        else:
-            self.prev_reward = reward
-
-        return -reward
-
     def step(self, action, eval_path=False):
         """
-        action = (flow_idx, path_idx) if not eval_path (default) else (flow_idx, path)
-        :return: reward, routs
+        action = (flow_idx, channels_per_link)
+        :return: next_state, reward
         """
 
         # simulate transmission of all flows from src->dst and get reward
-        reward = self.__simulate_global_transmission(action, eval_path=eval_path)
+        reward = self.__simulate_global_transmission(action, eval_path=False)
 
         # next state
         next_state = self.__get_observation()
 
         return next_state, reward
 
-    def eval(self, action):
-        """
-        simulate transmission of all flows from src->dst and get reward
-
-        :param action: list of indices of the paths to allocate, one for each flow
-        :return: reward for action
-        """
-
-        # simulate transmission of all flows from src->dst and get reward
-        reward = self.__simulate_global_transmission(action)
-
-        return reward
-
-    def eval_all(self, actions):
-        """
-
-        :param actions: list of tuples (flow, path)
-        :return: accumulated reward
-        """
-        self.reset()
-        rewards = [self.eval((i, a)) for i, a in enumerate(actions)]
-        return sum(rewards)
-
-    def get_routs(self, actions):
-        if isinstance(actions[0], (list, tuple)):
-            return [self.possible_actions[a[0]][a[1]] for a in actions]
-        else:
-            return [self.possible_actions[i][a] for i, a in enumerate(actions)]
-
-    def rates_objective(self, a):
-        self.reset()
-        self.eval_all(a)
-        return np.sum(self.get_rates_data()['sum_flow_rates'])
-
 
 if __name__ == "__main__":
     """sanity check for env and reward"""
+    reward_weights = dict(rate_weight=0.5, delay_weight=0, interference_weight=0, capacity_reduction_weight=0)
 
     # number of nodes
     N = 4
@@ -627,7 +609,11 @@ if __name__ == "__main__":
 
     # capacity matrix
     C = 100 * np.ones((N, N))
-
+    C = 100 * np.array([[1, 1, 1, 1],  #means how connects to who
+                        [1, 1, 1, 1],
+                        [1, 1, 1, 1],
+                        [1, 1, 1, 1]])
+    
     # interference matrix
     I = np.ones((N, N)) - np.eye(N)
 
@@ -636,35 +622,64 @@ if __name__ == "__main__":
 
     # flow demands
     F = [
-        {"source": 0, "destination": 3, "packets": 50000, "time_constrain": 10},
-        {"source": 0, "destination": 3, "packets": 50000, "time_constrain": 10}
+        {"source": 0, "destination": 3, "packets": 5000, "time_constrain": 10},
+        {"source": 0, "destination": 3, "packets": 5000, "time_constrain": 10}
     ]
 
-    env = GraphEnvPower(adjacency_matrix=A,
-                        bandwidth_matrix=C,
-                        interference_matrix=I,
-                        flows=F,
-                        node_positions=P,
-                        k=action_size,
-                        reward_balance=0.2)
+    env = SlottedGraphEnvPower( adjacency_matrix=A,
+                                bandwidth_matrix=C,
+                                flows=F,
+                                node_positions=P,
+                                k=action_size,
+                                reward_weights=reward_weights,
+                                telescopic_reward = True,
+                                direction = 'minimize',
+                                render_mode = False)
 
-    env.show_graph()
+    # adj_matrix, edges, free_paths, free_paths_idx, _ = env.reset()
+    # reward = 0
+
+    # state_debug, r = env.step(action=[0,0])
+    # reward += r
+    
+    # state_debug, r = env.step(action=[1,1])
+    # reward += r 
+    
+    # state_debug, r = env.step(action=[2,2])
+    # reward += r 
+
+    # state_debug, r = env.step(action=[3,3])
+    # reward += r 
+    
+
+    # print(f"rate: {env.get_rates_data().get('avg_flow_rate')}, delay: {env.get_rates_data().get('end_to_end_delay_per_flow')}")
+    # print(env.routing_metrics)
+    # print("-" * 20)
+    
     adj_matrix, edges, free_paths, free_paths_idx, normalized_demand = env.reset()
     possible_actions = free_paths.copy()
-    #pprint(free_paths)
+    best_score = -sys.maxsize
+    best_routs = []
+    best_action = -1
+    for i in range(action_size):
+        for j in range(action_size):
+            state_debug = env.reset() # interfernce map = state_debug[0][:,:,0]
+            reward = 0
+            a0 = [0, i]
+            state_debug, r = env.step(action=a0)
+            reward += r
+            a1 = [1, j]
+            state_debug, r = env.step(action=a1)
+            reward += r
+            routs = [possible_actions[i], possible_actions[j + action_size]]
+            print(
+                f"action {[i, j]} with routs {routs} -> reward: {reward} (rates: {env.get_rates_data().get('avg_flow_rate')}, delay: {env.get_delay_data().get('end_to_end_delay_per_flow')})")
 
-    reward = 0
-    
-    i = 0
-    raz_decision_1 = [0,i]
-    state_debug, r = env.step(action=raz_decision_1)
-    reward += r
-    
-    j = 1
-    raz_decision_2 = [1,j]
-    state_debug, r = env.step(action=raz_decision_2)
-    reward += r 
-    
-    routs = [possible_actions[i], possible_actions[j + action_size]]
-    print(
-        f"action {[i, j]} with routs {routs} -> reward: {reward} (rates: {env.get_rates_data()['rate_per_flow']}, delay: {env.get_delay_data()['delay_per_flow']})")
+            if reward > best_score:
+                best_score = reward
+                best_routs = routs.copy()
+                best_action = [i, j]
+
+    print("*****************************")
+    print("Optimal Solution:")
+    print(f"action {best_action} with routs {best_routs} -> reward: {best_score}")
