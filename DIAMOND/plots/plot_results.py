@@ -5,7 +5,7 @@ from matplotlib import pyplot as plt
 import numpy as np
 import matplotlib
 
-matplotlib.use('TkAgg')
+#matplotlib.use('TkAgg')
 
 
 def plot_rate_delay(topology_path, rate_path, delay_path, **kwargs):
@@ -44,6 +44,7 @@ def plot_rate_delay(topology_path, rate_path, delay_path, **kwargs):
     if kwargs.get('title'):
         f.suptitle(kwargs.get('title'))
     plt.show()
+    plt.savefig(f'')
 
 
 def plot_all():

@@ -24,7 +24,7 @@ class SlottedGraphEnvPower:
                  k,
                  received_interference_map=None,
                  normalize_capacity=True,
-                 render_mode = True,
+                 render_mode = False,
                  seed=42,
                  **kwargs):
         
@@ -588,7 +588,12 @@ class SlottedGraphEnvPower:
         next_state = self.__get_observation()
 
         return next_state, reward
-
+    
+    def get_routs(self, actions):
+        if isinstance(actions[0], (list, tuple)):
+            return [self.possible_actions[a[0]][a[1]] for a in actions]
+        else:
+            return [self.possible_actions[i][a] for i, a in enumerate(actions)]
 
 if __name__ == "__main__":
     """sanity check for env and reward"""

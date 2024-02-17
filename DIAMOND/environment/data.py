@@ -113,6 +113,7 @@ def generate_env(num_nodes=10,
                    direction=direction,
                    reward_balance=reward_balance,
                    seed=seed,
+                   render_mode=False,
                    **kwargs)
 
     return env,slotted_env

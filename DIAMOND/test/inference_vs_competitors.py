@@ -11,6 +11,7 @@ sys.path.insert(0, 'DIAMOND')
 from diamond import DIAMOND
 from environment import generate_env
 from competitors import OSPF, RandomBaseline, DQN_GNN, DIAR, IACR
+from matplotlib import pyplot as plt
 
 SEED = 123
 random.seed(SEED)
@@ -21,7 +22,7 @@ os.environ["PYTHONHASHSEED"] = str(SEED)
 class TestvsCompetitors:
     def __init__(self,
                  grrl_model_path,
-                 num_episodes=100,
+                 num_episodes=2,
                  num_rb_trials=100,
                  **kwargs):
 
@@ -31,11 +32,11 @@ class TestvsCompetitors:
         self.episode_from = kwargs.get('episode_from', 0)
 
         self.competitors = {
-            'DQN+GNN': DQN_GNN(k=4),
-            'OSPF': OSPF(),
-            'RandomBL': RandomBaseline(num_trials=num_rb_trials),
-            'DIAR': DIAR(n_iter=2),
-            'IACR': IACR(delta=0.5, alpha=1.3),
+            # 'DQN+GNN': DQN_GNN(k=4),
+            # 'OSPF': OSPF(),
+            # 'RandomBL': RandomBaseline(num_trials=num_rb_trials),
+            # 'DIAR': DIAR(n_iter=2),
+            # 'IACR': IACR(delta=0.5, alpha=1.3),
         }
 
     def __call__(self, **kwargs):
@@ -47,10 +48,10 @@ class TestvsCompetitors:
         self.num_actions = kwargs.get('num_actions', 4)
 
         data = {
-            'diamond_delay': 0,
-            'diamond_rates': 0,
-            'grrl_delay': 0,
-            'grrl_rates': 0,
+            'grrl_delay': [],
+            'grrl_rates': [],
+            'Slotted Env grrl_delay': [],
+            'Slotted Env grrl_rates': [],            
         }
         for c in self.competitors.keys():
             data[f"{c}_delay"] = 0
@@ -78,13 +79,14 @@ class TestvsCompetitors:
                                             channel_gain=kwargs.get('channel_gain'))
 
             # test DIAMOND
-            diamond_paths, grrl_rates_data, grrl_delay_data = self.diamond(slotted_env, grrl_data=True)
-            diamond_delay_data = env.get_delay_data()
-            diamond_rates_data = env.get_rates_data()
-            data['diamond_delay'] += np.max(diamond_delay_data['delay_per_flow'])
-            data['diamond_rates'] += (diamond_rates_data['sum_flow_rates'] / self.num_flows)
-            data['grrl_delay'] += np.max(grrl_delay_data['delay_per_flow'])
-            data['grrl_rates'] += (grrl_rates_data['sum_flow_rates'] / self.num_flows)
+            grrl_rates_data, grrl_delay_data = self.diamond(env, grrl_data=True)
+            slotted_grrl_rates_data, slotted_grrl_delay_data = self.diamond(slotted_env, grrl_data=True)
+            
+            data['grrl_delay'].append(np.mean(grrl_delay_data['delay_per_flow']))
+            data['grrl_rates'].append(np.mean(grrl_rates_data['rate_per_flow']))
+
+            data['Slotted Env grrl_delay'].append(np.mean(slotted_grrl_delay_data['end_to_end_delay_per_flow']))
+            data['Slotted Env grrl_rates'].append(np.mean(slotted_grrl_rates_data['rate_per_flow']))
 
             # competitors
             for name, comp in zip(self.competitors.keys(), self.competitors.values()):
@@ -92,21 +94,21 @@ class TestvsCompetitors:
                 data[f"{name}_delay"] += np.max(delay_data['delay_per_flow'])
                 data[f"{name}_rates"] += (rates_data['sum_flow_rates'] / self.num_flows)
 
-        # average
-        for d in data:
-            data[d] /= self.num_episodes
+        # # average
+        # for d in data:
+        #     data[d][0] /= self.num_episodes
 
-        print(f"==========================================================================================")
-        print(
-            f"(V={num_nodes}, E={num_edges}, N={num_flows}, k={num_actions}) {[f'{c}: {data[c]:.3f}' for c in data]}")
-
+        # print(f"==========================================================================================")
+        # print(
+        #     f"(V={num_nodes}, E={num_edges}, N={num_flows}, k={num_actions}) {[f'{c}: {data[c][0]:.3f}' for c in data]}")        
         labels = ["DIAMOND", "GRRL"] + list(self.competitors.keys())
 
         return data, labels
 
 
 if __name__ == "__main__":
-
+    
+    save_to_file = False
     BASE_PATH = os.path.join("..", "results", "inference_vs_competitors")
     MODEL_PATH = os.path.join("DIAMOND", "pretrained", "model_20221113_212726_480.pt")
     timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
@@ -117,7 +119,7 @@ if __name__ == "__main__":
     num_edges = 90  # 50
     num_actions = 4
     temperature = 1.2
-    num_episodes = 10
+    num_episodes = 500
     episode_from = 7500
     nb3r_steps = 100
 
@@ -136,8 +138,8 @@ if __name__ == "__main__":
             data_rates = []
             data_delay = []
 
-            for num_flows in [5, 10, 20, 30, 40, 50, 60, 70, 80, 90, 100, 120, 150, 200] if GRAPH_MODE == 'random' else \
-                             [5, 10, 20, 30, 40, 50, 60, 70, 80, 90]:
+            for num_flows in [5] if GRAPH_MODE == 'random' else \
+                             [5]:
                 alg = TestvsCompetitors(grrl_model_path=MODEL_PATH, num_episodes=num_episodes, episode_from=episode_from,
                                         temperature=temperature, nb3r_steps=nb3r_steps)
 
@@ -145,29 +147,42 @@ if __name__ == "__main__":
                                    graph_mode=GRAPH_MODE,
                                    trx_power_mode=trx_power_mode, rayleigh_scale=rayleigh_scale, max_trx_power=max_trx_power, channel_gain=channel_gain)
 
-                data_rates.append([int(num_flows)] + [data[x] for x in list(filter(lambda x: "rates" in x, data.keys()))])
-                data_delay.append([int(num_flows)] + [data[x] for x in list(filter(lambda x: "delay" in x, data.keys()))])
+            plt.figure()
+            plt.plot(data['grrl_delay'],label='Orig')
+            plt.plot(data['Slotted Env grrl_delay'],label='Slotted')
+            plt.title(f'DELAY. num_flows: {num_flows},GRAPH_MODE: {GRAPH_MODE},trx_power_mode {trx_power_mode}' )
+            plt.savefig(f'{num_flows}_{GRAPH_MODE}_{trx_power_mode}_DELAY')
+            plt.xlabel('runs')
+            plt.close()
 
-            curr_path = os.path.join(BASE_PATH, timestamp, GRAPH_MODE, trx_power_mode)
-            os.makedirs(curr_path)
-            shutil.copy(src=script_path, dst=os.path.join(curr_path, os.path.split(script_path)[1]))
+            plt.figure()
+            plt.plot(data['grrl_rates'],label='Orig')
+            plt.plot(data['Slotted Env grrl_rates'],label='Slotted')
+            plt.title(f'FLOW RATE. num_flows: {num_flows},GRAPH_MODE: {GRAPH_MODE},trx_power_mode {trx_power_mode}' )
+            plt.xlabel('runs')
+            plt.savefig(f'{num_flows}_{GRAPH_MODE}_{trx_power_mode}_RATES')
+            plt.close()
 
-            with open(os.path.join(curr_path, f"{GRAPH_MODE}_{trx_power_mode}_rates.csv"), 'w') as f:
-                f.writelines("# " + trx_power_mode + '\n')
-                f.writelines("# " + GRAPH_MODE + '\n')
-                f.writelines("# " + f"k={num_actions}, V={num_nodes}, E={num_edges}" + '\n')
-                f.writelines("# " + "rates" + '\n')
-                f.writelines('\n')
-                f.writelines(",".join(["N"] + labels) + '\n')
-                np.savetxt(f, np.array(data_rates), delimiter=',', fmt=','.join(['%i'] + ['%1.3f'] * len(labels)))
+            if save_to_file:
+                # curr_path = os.path.join(BASE_PATH, timestamp, GRAPH_MODE, trx_power_mode)
+                # os.makedirs(curr_path)
+                # shutil.copy(src=script_path, dst=os.path.join(curr_path, os.path.split(script_path)[1]))  
+                with open(os.path.join(curr_path, f"{GRAPH_MODE}_{trx_power_mode}_rates.csv"), 'w') as f:
+                    f.writelines("# " + trx_power_mode + '\n')
+                    f.writelines("# " + GRAPH_MODE + '\n')
+                    f.writelines("# " + f"k={num_actions}, V={num_nodes}, E={num_edges}" + '\n')
+                    f.writelines("# " + "rates" + '\n')
+                    f.writelines('\n')
+                    f.writelines(",".join(["N"] + labels) + '\n')
+                    np.savetxt(f, np.array(data_rates), delimiter=',', fmt=','.join(['%i'] + ['%1.3f'] * len(labels)))
 
-            with open(os.path.join(curr_path, f"{GRAPH_MODE}_{trx_power_mode}_delay.csv"), 'w') as f:
-                f.writelines("# " + trx_power_mode + '\n')
-                f.writelines("# " + GRAPH_MODE + '\n')
-                f.writelines("# " + f"k={num_actions}, V={num_nodes}, E={num_edges}" + '\n')
-                f.writelines("# " + "delay" + '\n')
-                f.writelines('\n')
-                f.writelines(",".join(["N"] + labels) + '\n')
-                np.savetxt(f, np.array(data_delay), delimiter=',', fmt=','.join(['%i'] + ['%1.3f'] * len(labels)))
+                with open(os.path.join(curr_path, f"{GRAPH_MODE}_{trx_power_mode}_delay.csv"), 'w') as f:
+                    f.writelines("# " + trx_power_mode + '\n')
+                    f.writelines("# " + GRAPH_MODE + '\n')
+                    f.writelines("# " + f"k={num_actions}, V={num_nodes}, E={num_edges}" + '\n')
+                    f.writelines("# " + "delay" + '\n')
+                    f.writelines('\n')
+                    f.writelines(",".join(["N"] + labels) + '\n')
+                    np.savetxt(f, np.array(data_delay), delimiter=',', fmt=','.join(['%i'] + ['%1.3f'] * len(labels)))
 
     print('done')

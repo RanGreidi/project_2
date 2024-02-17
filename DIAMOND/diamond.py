@@ -24,26 +24,30 @@ class DIAMOND:
         rl_delay_data = env.get_delay_data()
         rl_rates_data = env.get_rates_data()
 
-        # stage 2
-        self.nb3r_steps = int(env.num_flows * 5)
-        nb3r_action = nb3r(
-                           objective=lambda a: -self.rates_objective(env, a),
-                           # objective=lambda a: -self.reward_objective(env, a),
-                           # objective=lambda a: -self.delay_objective(env, a),
-                           state_space=env.get_state_space(),
-                           num_iterations=self.nb3r_steps,  # max(self.nb3r_steps, int(env.num_flows * 5)),
-                           initial_state=rl_actions.copy(),
-                           verbose=False,
-                           seed=env.seed,
-                           return_history=False,
-                           initial_temperature=self.nb3r_tmpr)
-        # routs
-        routs = env.get_routs(nb3r_action)
-
+        # # stage 2
+        # self.nb3r_steps = int(env.num_flows * 5)
+        # nb3r_action = nb3r(
+        #                    objective=lambda a: -self.rates_objective(env, a),
+        #                    # objective=lambda a: -self.reward_objective(env, a),
+        #                    # objective=lambda a: -self.delay_objective(env, a),
+        #                    state_space=env.get_state_space(),
+        #                    num_iterations=self.nb3r_steps,  # max(self.nb3r_steps, int(env.num_flows * 5)),
+        #                    initial_state=rl_actions.copy(),
+        #                    verbose=False,
+        #                    seed=env.seed,
+        #                    return_history=False,
+        #                    initial_temperature=self.nb3r_tmpr)
+        # # routs
+        # routs = env.get_routs(nb3r_action)
+        #
+        # if grrl_data:
+        #     return routs, rl_rates_data, rl_delay_data
+        # return routs
+        
         if grrl_data:
-            return routs, rl_rates_data, rl_delay_data
-        return routs
-
+            return rl_rates_data, rl_delay_data
+        return 
+    
     @staticmethod
     def rates_objective(env, actions):
         env.reset()
