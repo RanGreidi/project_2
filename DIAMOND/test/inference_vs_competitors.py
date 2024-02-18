@@ -82,11 +82,11 @@ class TestvsCompetitors:
             grrl_rates_data, grrl_delay_data = self.diamond(env, grrl_data=True)
             slotted_grrl_rates_data, slotted_grrl_delay_data = self.diamond(slotted_env, grrl_data=True)
             
-            data['grrl_delay'].append(np.mean(grrl_delay_data['delay_per_flow']))
-            data['grrl_rates'].append(np.mean(grrl_rates_data['rate_per_flow']))
+            data['grrl_delay'].append(grrl_delay_data['delay_per_flow'][0])
+            data['grrl_rates'].append(grrl_rates_data['rate_per_flow'][0])
 
-            data['Slotted Env grrl_delay'].append(np.mean(slotted_grrl_delay_data['end_to_end_delay_per_flow']))
-            data['Slotted Env grrl_rates'].append(np.mean(slotted_grrl_rates_data['rate_per_flow']))
+            data['Slotted Env grrl_delay'].append(slotted_grrl_delay_data['end_to_end_delay_per_flow'][0])
+            data['Slotted Env grrl_rates'].append(slotted_grrl_rates_data['rate_per_flow'][0])
 
             # competitors
             for name, comp in zip(self.competitors.keys(), self.competitors.values()):
@@ -119,7 +119,7 @@ if __name__ == "__main__":
     num_edges = 90  # 50
     num_actions = 4
     temperature = 1.2
-    num_episodes = 500
+    num_episodes = 100
     episode_from = 7500
     nb3r_steps = 100
 
@@ -151,22 +151,26 @@ if __name__ == "__main__":
             plt.plot(data['grrl_delay'],label='Orig')
             plt.plot(data['Slotted Env grrl_delay'],label='Slotted')
             plt.title(f'DELAY. num_flows: {num_flows},GRAPH_MODE: {GRAPH_MODE},trx_power_mode {trx_power_mode}' )
+            plt.xlabel('episode')
+            plt.ylabel('flow 0 delay')   
+            plt.legend()         
             plt.savefig(f'{num_flows}_{GRAPH_MODE}_{trx_power_mode}_DELAY')
-            plt.xlabel('runs')
             plt.close()
 
             plt.figure()
             plt.plot(data['grrl_rates'],label='Orig')
             plt.plot(data['Slotted Env grrl_rates'],label='Slotted')
             plt.title(f'FLOW RATE. num_flows: {num_flows},GRAPH_MODE: {GRAPH_MODE},trx_power_mode {trx_power_mode}' )
-            plt.xlabel('runs')
+            plt.xlabel('episode')
+            plt.ylabel('flow 0 Rate')
+            plt.legend()
             plt.savefig(f'{num_flows}_{GRAPH_MODE}_{trx_power_mode}_RATES')
             plt.close()
 
             if save_to_file:
-                # curr_path = os.path.join(BASE_PATH, timestamp, GRAPH_MODE, trx_power_mode)
-                # os.makedirs(curr_path)
-                # shutil.copy(src=script_path, dst=os.path.join(curr_path, os.path.split(script_path)[1]))  
+                curr_path = os.path.join(BASE_PATH, timestamp, GRAPH_MODE, trx_power_mode)
+                os.makedirs(curr_path)
+                shutil.copy(src=script_path, dst=os.path.join(curr_path, os.path.split(script_path)[1]))  
                 with open(os.path.join(curr_path, f"{GRAPH_MODE}_{trx_power_mode}_rates.csv"), 'w') as f:
                     f.writelines("# " + trx_power_mode + '\n')
                     f.writelines("# " + GRAPH_MODE + '\n')
