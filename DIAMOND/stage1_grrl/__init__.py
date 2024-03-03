@@ -1,2 +1,2 @@
-from .agent import GRRL
+from .agent import GRRL, SlottedGRRL
 from .gnn import GNN as GQN

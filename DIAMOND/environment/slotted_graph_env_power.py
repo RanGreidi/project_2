@@ -1,7 +1,7 @@
 
 import networkx as nx
 from matplotlib import pyplot as plt
-
+import copy
 import sys
 sys.path.insert(0, 'DIAMOND')
 import numpy as np
@@ -26,6 +26,7 @@ class SlottedGraphEnvPower:
                  normalize_capacity=True,
                  render_mode = True,
                  seed=42,
+                 slot_duration = 1,
                  **kwargs):
         
         
@@ -35,6 +36,8 @@ class SlottedGraphEnvPower:
 
         # received
         self.flows = flows
+        self.residual_flows = []
+        self.next_slot_flows = None
         self.adjacency_matrix = adjacency_matrix
         self.bandwidth_matrix = bandwidth_matrix
         self.node_positions = node_positions
@@ -58,6 +61,7 @@ class SlottedGraphEnvPower:
 
         self.possible_actions = [[] for _ in range(len(self.flows))]
         self.allocated = []
+        self.residual_allocated = []
         self.prev_reward = None
         
         self.routing_metrics = dict(rate=dict(rate_per_flow=self.demands.copy()),
@@ -82,6 +86,10 @@ class SlottedGraphEnvPower:
         self.eids = dict()
         self.id_to_edge = []
 
+        self.slot_duration = slot_duration
+        self.slot_num = 0
+        self.active_links_after_time_slot = []
+        
         self.render_mode = render_mode
         # initialization once
         self.__create_graph()
@@ -342,6 +350,7 @@ class SlottedGraphEnvPower:
             for idx, pkt in enumerate(advanced_packets): # this loop is for the case two flows share the same link, than advanced_packets is a list
                 flow_idx = a['flows_idxs'][idx]
                 flow = self.flows[flow_idx]
+
                 u, v = a['link']  # current hop
                 v_pos = flow['path'].index(v)
                 if v_pos < len(flow['path']) - 1:
@@ -399,35 +408,58 @@ class SlottedGraphEnvPower:
         @input: action - [[rout],[rout],[rout]] example:[[0,3],[0,1,3]]
         @output: 
         """
-        self.allocated.append(action)
+        if self.flows:
+            self.allocated.append(action)
+            if not eval_path:
+                allocated_paths = [self.possible_actions[a[0]][a[1]] for a in sorted(self.allocated, key=lambda x: x[0])]
+            else:
+                allocated_paths = [a[1] for a in sorted(self.allocated, key=lambda x: x[0])]
+            
+            # update flows in env.flows that were allocated so far
+            for i, allocated_path in enumerate(allocated_paths):
+                self.flows[i].update({'path':allocated_path})
+            #   active_flows is a list of tuples with (flow_indx,rout) of all active flows. 
+            #   it does not change throughut a step. each episode it appends one more flow
+            active_flows = [(a[0], self.flows[a[0]]) for a in self.allocated] 
 
-        if not eval_path:
-            allocated_paths = [self.possible_actions[a[0]][a[1]] for a in sorted(self.allocated, key=lambda x: x[0])]
-        else:
-            allocated_paths = [a[1] for a in sorted(self.allocated, key=lambda x: x[0])]
+            # active_links is a list of dicts with srs,dst,rout,packet. it changes throughut an episode
+            active_links = [dict(flow_idx=f_idx,
+                                link=(f['path'][0], f['path'][1]),
+                                packets=f['packets'])
+                                                        for i, (f_idx, f) in enumerate(active_flows)]
+        else: active_links = []
+
+        residual_flows = [a for a in self.residual_allocated]
+        # after new action is appended to self.alocated, the path of the flow is added to self.flows
         
-        #   update flows in env.flows that were allocated so far
-        for i, allocated_path in enumerate(allocated_paths):
-            self.flows[i].update({'path':allocated_path})
-        #   active_flows is a list of tuples with (flow_indx,rout) of all active flows. 
-        #   it does not change throughut a step. each episode it appends one more flow
-        active_flows = [(a[0], self.flows[a[0]]) for a in self.allocated] 
-        #   after new action is appended to self.alocated, the path of the flow is added to self.flows
+        residual_active_links = [dict(flow_idx=f_idx,
+                                      link=(f['path'][0], f['path'][1]),
+                                      packets=f['packets'],
+                                      is_residual=True)
+                        for i, (f_idx, f) in enumerate(residual_flows)]
+        
+        # active_links + from previus time step
+        active_links += residual_active_links
+            
 
-
-        #active_links is a list of dicts with srs,dst,rout,packet. it changes throughut an episode
-        active_links = [dict(flow_idx=f_idx,
-                             link=(f['path'][0], f['path'][1]),
-                             packets=f['packets'])
-                        for i, (f_idx, f) in enumerate(active_flows)]
-
-        total_time_slots = 0
+        total_time_stemp_in_single_slot = 0
         metadata = []
         while active_links:
             # transmit single hop for all flows
-            active_links, hop_metadata = self._transmit_singe_timestep(active_links, total_time_slots)
-            metadata.append(hop_metadata)
-            total_time_slots += 1
+            if total_time_stemp_in_single_slot < self.slot_duration: 
+                active_links, hop_metadata = self._transmit_singe_timestep(active_links, total_time_stemp_in_single_slot)
+                metadata.append(hop_metadata)
+                total_time_stemp_in_single_slot += 1       
+            else:
+                if len(self.allocated) == len(self.flows):  # if finish all flow at a time slot than
+                    self.update_packets_who_left_srs(active_links,action)
+                    self.slot_num +=1
+                break
+
+
+            # active_links, hop_metadata = self._transmit_singe_timestep(active_links, total_time_slots)
+            # metadata.append(hop_metadata)
+            # total_time_slots += 1
             
 
         # introduce selected action into the graph
@@ -443,11 +475,58 @@ class SlottedGraphEnvPower:
             self.routing_metrics = dict(rate=dict(rate_per_flow=self.demands.copy()),
                                         delay=dict(end_to_end_delay_per_flow=np.zeros(self.num_flows)))
         return reward
-    
+
+    def update_packets_who_left_srs(self,active_links,action):
+        ''' updatde broadcasts that habe not reached its dst
+        updates env.flows
+        updates already sent packets'''
+        active_flows = [(a[0], self.flows[a[0]]) for a in self.allocated] 
+        sorted_active_flows = sorted(active_links, key=lambda x: x.get('flow_idx', 0))
+        list_of_2allocate = []
+        list_of_2flows = []
+        for a in self.flows:
+            flow_idx = a['flow_idx']
+            list_of_flow = [d for d in sorted_active_flows if d.get('flow_idx') == flow_idx]
+            _2flows = next((d for d in list_of_flow if d.get('link')[0] == a['source']), {})
+            list_of_flow.remove(_2flows) if _2flows else None
+            if _2flows:
+                _2flows = dict(source=a['source'],
+                            destination=a['destination'],
+                            packets=_2flows['packets'],
+                            time_constrain=10,
+                            flow_idx=flow_idx,
+                            path=a['path'])
+                list_of_2flows.append(_2flows)
+
+            path_plan = active_flows[flow_idx][1]['path']
+            for resi in list_of_flow: 
+                srs = resi['link'][0]
+                dst = a['destination']
+                idx2start = path_plan.index(srs)
+                path = path_plan[idx2start:]
+                packets = resi['packets']
+                _2allocated = dict(source=srs,
+                                   destination=dst,
+                                   packets=packets,
+                                   time_constrain=10,
+                                   flow_idx=flow_idx,
+                                   path=path,
+                                   is_residual=True)
+                list_of_2allocate.append((flow_idx,_2allocated))    
+                #list_of_2allocate.append(_2allocated)
+            
+        self.residual_allocated = list_of_2allocate
+        self.flows = list_of_2flows
+        self.residual_flows = list_of_2allocate
+        #self.flows = list_of_2flows + list_of_2allocate
+        return 
+
     def calc_reward(self, metadata):
 
         avg_flow_rate = np.sum([self.routing_metrics['rate']['rate_per_flow'][a[0]] for a in self.allocated]) / len(self.allocated)
-        avg_excess_delay = np.sum([self.routing_metrics['delay']['end_to_end_delay_per_flow'][a[0]] - (len(self.flows[a[0]]['path']) - 1) for a in self.allocated]) / len(self.allocated)
+        #need to build with residual delay
+        #avg_excess_delay = np.sum([self.routing_metrics['delay']['end_to_end_delay_per_flow'][a[0]] - (len(self.flows[a[0]]['path']) - 1) for a in self.allocated]) / len(self.allocated)
+        avg_excess_delay = 0
         
         capacity_reduction = np.sum([np.mean(m['capacity_reduction']) for m in metadata])
         interference_on_others = np.sum([np.mean(m['interference']) for m in metadata]) # For each link, we calc the avg of its interfernce from other throughout all timesteps, than sum for all links
@@ -463,7 +542,9 @@ class SlottedGraphEnvPower:
         
         #--- for raz old ver comparision
         delay = self.routing_metrics['delay']['end_to_end_delay_per_flow'][self.allocated[-1][0]] # may not be same as raz old ver
-        rate_reward = self.routing_metrics['rate']['rate_per_flow'][self.allocated[-1][0]] /  self.flows[self.allocated[-1][0]]['packets']
+        #need to build with residual delay
+        #rate_reward = self.routing_metrics['rate']['rate_per_flow'][self.allocated[-1][0]] /  self.flows[self.allocated[-1][0]]['packets']
+        rate_reward = 0
         reward = rate_weight * rate_reward + (1 - rate_weight) * interference_on_others
         #---
 
@@ -479,6 +560,10 @@ class SlottedGraphEnvPower:
                 self.prev_reward = reward
 
         return reward
+
+    def end_of_step_update(self):
+        self.allocated = []
+        return
 
     def get_delay_data(self):
         data = self.routing_metrics.get('delay')
@@ -558,7 +643,8 @@ class SlottedGraphEnvPower:
             demand += [self.flows[a]["packets"] for k in p]
 
         # demand
-        normalized_demand = np.array(demand).astype(np.float32) / self.max_demand
+        #normalized_demand = np.array(demand).astype(np.float32) / self.max_demand
+        normalized_demand =  np.array([10000, 10000, 10000, 10000]).astype(np.float32) / 10000
 
         # if self.tf_env:
         #     return self.__get_tf_state()
@@ -573,6 +659,7 @@ class SlottedGraphEnvPower:
         self.routing_metrics = dict(rate=dict(rate_per_flow=self.demands.copy()),
                                     delay=dict(end_to_end_delay_per_flow=np.zeros(self.num_flows)))
         observation = self.__get_observation()
+
         return observation
 
     def step(self, action, eval_path=False):
@@ -627,8 +714,8 @@ if __name__ == "__main__":
 
     # flow demands
     F = [
-        {"source": 0, "destination": 3, "packets": 500, "time_constrain": 10},
-        {"source": 0, "destination": 3, "packets": 500, "time_constrain": 10}
+        {"source": 0, "destination": 3, "packets": 200, "time_constrain": 10},
+        {"source": 0, "destination": 3, "packets": 200, "time_constrain": 10}
     ]
 
     env = SlottedGraphEnvPower( adjacency_matrix=A,

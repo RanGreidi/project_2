@@ -8,7 +8,7 @@ import sys
 sys.path.insert(0, 'DIAMOND')
 ##sys.path.insert(0, '/work_space/project2/DIAMOND-master/DIAMOND-master')
 
-from diamond import DIAMOND
+from diamond import DIAMOND, SlottedDIAMOND
 from environment import generate_env
 from competitors import OSPF, RandomBaseline, DQN_GNN, DIAR, IACR
 
@@ -24,18 +24,22 @@ class TestvsCompetitors:
                  num_episodes=100,
                  num_rb_trials=100,
                  **kwargs):
-
+        
+        self.slotted_diamond = SlottedDIAMOND(grrl_model_path=grrl_model_path, nb3r_tmpr=kwargs.get('nb3r_tmpr', 1),
+                               nb3r_steps=kwargs.get('nb3r_tmpr', 100))
+        
         self.diamond = DIAMOND(grrl_model_path=grrl_model_path, nb3r_tmpr=kwargs.get('nb3r_tmpr', 1),
                                nb3r_steps=kwargs.get('nb3r_tmpr', 100))
+        
         self.num_episodes = num_episodes
         self.episode_from = kwargs.get('episode_from', 0)
 
         self.competitors = {
-            'DQN+GNN': DQN_GNN(k=4),
-            'OSPF': OSPF(),
-            'RandomBL': RandomBaseline(num_trials=num_rb_trials),
-            'DIAR': DIAR(n_iter=2),
-            'IACR': IACR(delta=0.5, alpha=1.3),
+            #'DQN+GNN': DQN_GNN(k=4),
+            #'OSPF': OSPF(),
+            #'RandomBL': RandomBaseline(num_trials=num_rb_trials),
+            #'DIAR': DIAR(n_iter=2),
+            #'IACR': IACR(delta=0.5, alpha=1.3),
         }
 
     def __call__(self, **kwargs):
@@ -79,12 +83,21 @@ class TestvsCompetitors:
 
             # test DIAMOND
             diamond_paths, grrl_rates_data, grrl_delay_data = self.diamond(slotted_env, grrl_data=True)
-            diamond_delay_data = env.get_delay_data()
-            diamond_rates_data = env.get_rates_data()
-            data['diamond_delay'] += np.max(diamond_delay_data['delay_per_flow'])
-            data['diamond_rates'] += (diamond_rates_data['sum_flow_rates'] / self.num_flows)
-            data['grrl_delay'] += np.max(grrl_delay_data['delay_per_flow'])
-            data['grrl_rates'] += (grrl_rates_data['sum_flow_rates'] / self.num_flows)
+            # diamond_delay_data = env.get_delay_data()
+            # diamond_rates_data = env.get_rates_data()
+            # data['diamond_delay'] += np.max(diamond_delay_data['delay_per_flow'])
+            # data['diamond_rates'] += (diamond_rates_data['sum_flow_rates'] / self.num_flows)
+            # data['grrl_delay'] += np.max(grrl_delay_data['delay_per_flow'])
+            # data['grrl_rates'] += (grrl_rates_data['sum_flow_rates'] / self.num_flows)
+
+            # test SlottedDIAMOND
+            diamond_paths, slotted_grrl_rates_data, slotted_grrl_delay_data = self.slotted_diamond(slotted_env, grrl_data=True)
+            # slotted_diamond_delay_data = env.get_delay_data()
+            # slotted_diamond_rates_data = env.get_rates_data()
+            # data['diamond_delay'] += np.max(diamond_delay_data['delay_per_flow'])
+            # data['diamond_rates'] += (diamond_rates_data['sum_flow_rates'] / self.num_flows)
+            # data['grrl_delay'] += np.max(grrl_delay_data['delay_per_flow'])
+            # data['grrl_rates'] += (grrl_rates_data['sum_flow_rates'] / self.num_flows)
 
             # competitors
             for name, comp in zip(self.competitors.keys(), self.competitors.values()):
@@ -117,7 +130,7 @@ if __name__ == "__main__":
     num_edges = 90  # 50
     num_actions = 4
     temperature = 1.2
-    num_episodes = 10
+    num_episodes = 1
     episode_from = 7500
     nb3r_steps = 100
 
