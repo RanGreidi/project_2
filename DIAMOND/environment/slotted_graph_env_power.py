@@ -8,6 +8,7 @@ import numpy as np
 from pprint import pprint
 
 from environment.utils import get_k_paths, one_link_transmission, plot_graph, init_seed
+from names_generator import generate_name
 
 # import torch
 # from torch_geometric.utils.convert import from_networkx
@@ -308,17 +309,26 @@ class SlottedGraphEnvPower:
 
     def _transmit_singe_timestep(self, active_links , total_time_slots):
         """ send packet over all links in active_links for a single time-step """
-        active_flows_idx = [l['flow_idx'] for l in active_links]
+        next_flows_list = []
         action_dict = {}
         for l1 in range(len(active_links)):
-            shared_resource = dict(link=active_links[l1]['link'],
+            if 'residual_name' in active_links[l1]:
+                shared_resource = dict(link=active_links[l1]['link'],
                                    packets=[active_links[l1]['packets']],
-                                   flows_idxs=[active_links[l1]['flow_idx']])
+                                   flows_idxs=[(active_links[l1]['flow_idx'],active_links[l1]['residual_name'])])                
+            else:
+                shared_resource = dict(link=active_links[l1]['link'],
+                                    packets=[active_links[l1]['packets']],
+                                    flows_idxs=[(active_links[l1]['flow_idx'],None)])
+                
             for l2 in range(l1+1, len(active_links)):
                 # find transmission over the same link
                 if active_links[l2]['link'] == active_links[l1]['link']:
                     shared_resource['packets'].append(active_links[l2]['packets'])
-                    shared_resource['flows_idxs'].append(active_links[l2]['flow_idx'])
+                    if 'residual_name' in active_links[l2]:
+                        shared_resource['flows_idxs'].append((active_links[l2]['flow_idx'],active_links[l2]['residual_name']))
+                    else: 
+                        shared_resource['flows_idxs'].append((active_links[l2]['flow_idx'],None))
             if str(shared_resource['link']) not in action_dict.keys():
                 action_dict[str(shared_resource['link'])] = shared_resource
 
@@ -348,48 +358,112 @@ class SlottedGraphEnvPower:
 
             # flows advancing to the next hop
             for idx, pkt in enumerate(advanced_packets): # this loop is for the case two flows share the same link, than advanced_packets is a list
-                flow_idx = a['flows_idxs'][idx]
-                flow = self.flows[flow_idx]
+                flow_idx = a['flows_idxs'][idx][0]
+                residual_name = a['flows_idxs'][idx][1] #name or None
+                
+                if not residual_name:    
+                    flow = self.flows[flow_idx]
 
-                u, v = a['link']  # current hop
-                v_pos = flow['path'].index(v)
-                if v_pos < len(flow['path']) - 1:
-                    next_hop = (flow['path'][v_pos], flow['path'][v_pos+1])
-                    exist_flow = list(filter(lambda x: x[1]['flow_idx'] == flow_idx and x[1]['link'] == next_hop,
-                                             enumerate(next_active_links))) # filters next_active_links according to conditions in lambda
-                    if exist_flow:
-                        next_active_links[exist_flow[0][0]]['packets'] += pkt
-                    else:
-                        next_active_links.append(dict(flow_idx=flow_idx,
-                                                      link=next_hop,
-                                                      packets=pkt))
-
-            # flows staying in the current hop for the next time stamp
-            for idx, pkt in enumerate(remaining_packets):
-                    flow_idx = a['flows_idxs'][idx]
-                    if pkt > 0:
-                        exist_flow = list(filter(
-                            lambda x: x[1]['flow_idx'] == flow_idx and x[1]['link'] == a['link'],
-                            enumerate(next_active_links)))
+                    u, v = a['link']  # current hop
+                    v_pos = flow['path'].index(v)
+                    if v_pos < len(flow['path']) - 1:
+                        next_hop = (flow['path'][v_pos], flow['path'][v_pos+1])
+                        exist_flow = list(filter(lambda x: x[1]['flow_idx'] == flow_idx and x[1]['link'] == next_hop,
+                                                enumerate(next_active_links))) # filters next_active_links according to conditions in lambda
                         if exist_flow:
                             next_active_links[exist_flow[0][0]]['packets'] += pkt
                         else:
                             next_active_links.append(dict(flow_idx=flow_idx,
-                                                          link=a['link'],
-                                                          packets=pkt))
+                                                        link=next_hop,
+                                                        packets=pkt))
+                else:
+                    #search for the spesific resiudal flow at self.residual_flows
+                    flow = next((dict for dict in self.residual_flows if dict.get('residual_name') == residual_name), None)
+
+                    u, v = a['link']  # current hop
+                    v_pos = flow['path'].index(v)
+                    if v_pos < len(flow['path']) - 1:
+                        next_hop = (flow['path'][v_pos], flow['path'][v_pos+1])
+                        exist_flow = list(filter(lambda x: x[1]['flow_idx'] == flow_idx and x[1]['link'] == next_hop,
+                                                enumerate(next_active_links))) # filters next_active_links according to conditions in lambda
+                        if exist_flow:
+                            next_active_links[exist_flow[0][0]]['packets'] += pkt
+                        else:
+                            next_active_links.append(dict(flow_idx=flow_idx,
+                                                        link=next_hop,
+                                                        packets=pkt,
+                                                        residual_name=residual_name))
+                        
+                        if len(self.allocated) == len(self.flows): 
+                            # update self.residual_flows - advance the current flow rout by one
+                            sub_flow = dict(source=flow['path'][v_pos],
+                                            destination=self.flows[flow_idx]['path'][-1],
+                                            packets=pkt,
+                                            time_constrain=10,
+                                            flow_idx=flow_idx,
+                                            path=flow['path'][1:],
+                                            residual_name=residual_name)
+                            next_flows_list.append(sub_flow)
+
+            # flows staying in the current hop for the next time stamp
+            for idx, pkt in enumerate(remaining_packets):
+                    flow_idx = a['flows_idxs'][idx][0]
+                    residual_name = a['flows_idxs'][idx][1] #name or None
+                    if not residual_name: 
+                        if pkt > 0:
+                            exist_flow = list(filter(
+                                lambda x: x[1]['flow_idx'] == flow_idx and x[1]['link'] == a['link'],
+                                enumerate(next_active_links)))
+                            if exist_flow:
+                                next_active_links[exist_flow[0][0]]['packets'] += pkt
+                            else:
+                                next_active_links.append(dict(flow_idx=flow_idx,
+                                                            link=a['link'],
+                                                            packets=pkt))
+                    else:
+                        flow = next((dict for dict in self.residual_flows if dict.get('residual_name') == residual_name), None)
+                        if pkt > 0:
+                            exist_flow = list(filter(
+                                lambda x: x[1]['flow_idx'] == flow_idx and x[1]['link'] == a['link'],
+                                enumerate(next_active_links)))
+                            if exist_flow:
+                                next_active_links[exist_flow[0][0]]['packets'] += pkt
+                            else:
+                                next_active_links.append(dict(flow_idx=flow_idx,
+                                                            link=a['link'],
+                                                            packets=pkt,
+                                                            residual_name=residual_name))
+                                
+                            if len(self.allocated) == len(self.flows):
+                                # update self.residual_flows - create a new flow with the existing pkt and same rout 
+                                sub_flow = dict(source=flow['path'][0],
+                                                destination=flow['path'][-1],
+                                                packets=pkt,
+                                                time_constrain=10,
+                                                flow_idx=flow_idx,
+                                                path=flow['path'],
+                                                residual_name=residual_name+'_'+str(sum(1 for my_dict in self.residual_flows if my_dict.get('residual_name') == residual_name)))#generate_name())
+                                next_flows_list.append(sub_flow)
+            
+            
+        if len(self.allocated) == len(self.flows):
+            self.residual_flows = next_flows_list
 
             # update rate metric
             for flow_idx in a['flows_idxs']:
-                availible_resource = capacity / len(a['packets'])
-                self.routing_metrics['rate']['rate_per_flow'][flow_idx] = np.min([self.routing_metrics['rate']['rate_per_flow'][flow_idx], availible_resource])
-       
+                if not flow_idx[1]: #TODO is this currect?
+                    availible_resource = capacity / len(a['packets'])
+                    self.routing_metrics['rate']['rate_per_flow'][flow_idx] = np.min([self.routing_metrics['rate']['rate_per_flow'][flow_idx], availible_resource])
+        
         # update list for all links interefences in order to avarge later
         self.current_link_interference_list_4EachTimeStep.append(self.current_link_interference)
         self.current_link_capacity_list_4EachTimeStep.append(self.current_link_capacity)
         
-        # update delay metric
+        # update delay metric #TODO is delay calc this currect?
+        active_flows_idx = [l['flow_idx'] for l in active_links if 'residual_name' not in l]
         for flow_idx in active_flows_idx:
-            self.routing_metrics['delay']['end_to_end_delay_per_flow'][flow_idx] += 1
+            if not flow_idx: 
+                self.routing_metrics['delay']['end_to_end_delay_per_flow'][flow_idx] += 1
 
         # 3. plot & reset & save interferences for next global step
         if self.render_mode: 
@@ -408,6 +482,8 @@ class SlottedGraphEnvPower:
         @input: action - [[rout],[rout],[rout]] example:[[0,3],[0,1,3]]
         @output: 
         """
+
+        #active links first generation
         if self.flows:
             self.allocated.append(action)
             if not eval_path:
@@ -424,24 +500,21 @@ class SlottedGraphEnvPower:
 
             # active_links is a list of dicts with srs,dst,rout,packet. it changes throughut an episode
             active_links = [dict(flow_idx=f_idx,
-                                link=(f['path'][0], f['path'][1]),
-                                packets=f['packets'])
-                                                        for i, (f_idx, f) in enumerate(active_flows)]
+                                 link=(f['path'][0], f['path'][1]),
+                                 packets=f['packets'])                   for i, (f_idx, f) in enumerate(active_flows)]
         else: active_links = []
 
-        residual_flows = [a for a in self.residual_allocated]
-        # after new action is appended to self.alocated, the path of the flow is added to self.flows
-        
-        residual_active_links = [dict(flow_idx=f_idx,
-                                      link=(f['path'][0], f['path'][1]),
-                                      packets=f['packets'],
-                                      is_residual=True)
-                        for i, (f_idx, f) in enumerate(residual_flows)]
-        
-        # active_links + from previus time step
+
+        if self.residual_flows:
+            active_residual_flows = [a for a in self.residual_flows]
+            residual_active_links = [dict(flow_idx=f['flow_idx'],
+                                          link=(f['path'][0], f['path'][1]),
+                                          packets=f['packets'],
+                                          residual_name=f['residual_name'])       for f in active_residual_flows]
+        else: residual_active_links = []
+
         active_links += residual_active_links
             
-
         total_time_stemp_in_single_slot = 0
         metadata = []
         while active_links:
@@ -452,7 +525,7 @@ class SlottedGraphEnvPower:
                 total_time_stemp_in_single_slot += 1       
             else:
                 if len(self.allocated) == len(self.flows):  # if finish all flow at a time slot than
-                    self.update_packets_who_left_srs(active_links,action)
+                    self.update_flows(active_links,action)
                     self.slot_num +=1
                 break
 
@@ -476,19 +549,26 @@ class SlottedGraphEnvPower:
                                         delay=dict(end_to_end_delay_per_flow=np.zeros(self.num_flows)))
         return reward
 
-    def update_packets_who_left_srs(self,active_links,action):
-        ''' updatde broadcasts that habe not reached its dst
-        updates env.flows
-        updates already sent packets'''
+    def update_flows(self,active_links,action):
+        ''' --- update seld.flows and self.residual flows ---
+            update residual flows: 
+        pckates that have left thier original flows, stays in thier determenied rout
+        in the simulation we treat that as new flows to be in active links. This part needs to update self.residual_flows
+        when new packet leave thier original flows 
+            update flows: 
+        needs to update original flows packets quantitiy
+        '''
         active_flows = [(a[0], self.flows[a[0]]) for a in self.allocated] 
-        sorted_active_flows = sorted(active_links, key=lambda x: x.get('flow_idx', 0))
-        list_of_2allocate = []
+        sorted_active_links = sorted(active_links, key=lambda x: x.get('flow_idx', 0))
+        list_of_new_residuals = []
         list_of_2flows = []
         for a in self.flows:
             flow_idx = a['flow_idx']
-            list_of_flow = [d for d in sorted_active_flows if d.get('flow_idx') == flow_idx]
-            _2flows = next((d for d in list_of_flow if d.get('link')[0] == a['source']), {})
-            list_of_flow.remove(_2flows) if _2flows else None
+             #next we looks only at links that is not residual and belong to flow a (there can be only 2)
+            list_of_links_4flow_a = [d for d in sorted_active_links if d.get('flow_idx') == flow_idx and not d.get('residual_name')]
+            _2flows = next((d for d in list_of_links_4flow_a if d.get('link')[0] == a['source']), {})
+            _2res = next((d for d in list_of_links_4flow_a if d.get('link')[0] != a['source']), {})
+            list_of_links_4flow_a.remove(_2flows) if _2flows else None
             if _2flows:
                 _2flows = dict(source=a['source'],
                             destination=a['destination'],
@@ -497,29 +577,24 @@ class SlottedGraphEnvPower:
                             flow_idx=flow_idx,
                             path=a['path'])
                 list_of_2flows.append(_2flows)
-
-            path_plan = active_flows[flow_idx][1]['path']
-            for resi in list_of_flow: 
-                srs = resi['link'][0]
-                dst = a['destination']
-                idx2start = path_plan.index(srs)
-                path = path_plan[idx2start:]
-                packets = resi['packets']
-                _2allocated = dict(source=srs,
-                                   destination=dst,
-                                   packets=packets,
-                                   time_constrain=10,
-                                   flow_idx=flow_idx,
-                                   path=path,
-                                   is_residual=True)
-                list_of_2allocate.append((flow_idx,_2allocated))    
-                #list_of_2allocate.append(_2allocated)
-            
-        self.residual_allocated = list_of_2allocate
-        self.flows = list_of_2flows
-        self.residual_flows = list_of_2allocate
-        #self.flows = list_of_2flows + list_of_2allocate
-        return 
+            self.flows = list_of_2flows
+            if _2res:
+                _2res = dict(source=a['path'][1],
+                            destination=a['path'][-1],
+                            packets=_2res['packets'],
+                            time_constrain=10,
+                            flow_idx=flow_idx,
+                            path=a['path'][1:],
+                            residual_name=generate_name())
+                #self.residual_flows.append(_2res)                
+                list_of_new_residuals.append(_2res)
+        
+        # update old residuals or make new residuals:
+        # if a residual flow finishes with the first node, than change him to be routed as [srs+1 -> dst]
+        # if a residual flow didnot finish, update its packet quantity, and make a new residual flow for what have moved 
+        # to the next node till dst
+        self.residual_flows += list_of_new_residuals
+        return
 
     def calc_reward(self, metadata):
 

@@ -65,9 +65,9 @@ if __name__ == "__main__":
                   [0, 0, 0, 0, 0, 1, 0, 1, 0]])
     
     
-    P = [(0, 0), (0, .1), (0, .2),
-         (.1, 0), (.1, .1), (.1, .2),
-         (.2, 0), (.2, .1), (.2, .2)]
+    P = [(0, 0), (0, 100.1), (0, 200.2),
+         (100.1, 0), (100.1, 100.1), (100.1, 200.2),
+         (200.2, 0), (200.2, 100.1), (200.2, 200.2)]
 
     # capacity matrix
     C = 100 * np.ones((N, N))
@@ -79,8 +79,8 @@ if __name__ == "__main__":
 
     # flow demands
     F = [
-        {"source": 0, "destination": 8, "packets": 100, "time_constrain": 10 , 'flow_idx': 0 }#,
-        # {"source": 0, "destination": 8, "packets": 10000, "time_constrain": 10, 'flow_idx': 1}
+        {"source": 0, "destination": 8, "packets": 1000, "time_constrain": 10 , 'flow_idx': 0 },
+        {"source": 0, "destination": 8, "packets": 1000, "time_constrain": 10, 'flow_idx': 1}
     ]
 
     slotted_env = SlottedGraphEnvPower( adjacency_matrix=A,

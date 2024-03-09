@@ -138,11 +138,12 @@ class SlottedGRRL:
         paths = []
         state = env.reset()
         reward = 0
+        Tot_num_of_timeslots = 100
 
-        while env.flows or env.residual_flows: # as long there is still flows running (determines the num of time_slotes in one episode)
+        for _ in range(Tot_num_of_timeslots): # as long there is still flows running (determines the num of time_slotes in one episode)
             for step in range(env.num_flows):
                 a = self._select_action(state, env.possible_actions[step])
-                action = [step, step]
+                action = [step, 0]
                 actions.append(action)
                 paths.append(env.possible_actions[action[0]][action[1]])
                 state, r = env.step(action)
