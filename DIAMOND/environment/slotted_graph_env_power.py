@@ -37,6 +37,7 @@ class SlottedGraphEnvPower:
 
         # received
         self.flows = flows
+        self.initial_flows = flows
         self.residual_flows = []
         self.next_slot_flows = None
         self.adjacency_matrix = adjacency_matrix
@@ -246,7 +247,7 @@ class SlottedGraphEnvPower:
             trx_power[np.where(self.links_length < rng * 1 / 3)] = 1/3
             trx_power[np.where((self.links_length >= rng * 1 / 3) & (self.links_length < rng * 2 / 3))] = 2/3
         return trx_power
-    
+      
     def __calc_possible_actions(self):
         """ store possible routs into self.possible_actions for each flow"""
         for i, flow in enumerate(self.flows):
@@ -577,8 +578,16 @@ class SlottedGraphEnvPower:
                             flow_idx=flow_idx,
                             path=a['path'])
                 list_of_2flows.append(_2flows)
-            self.flows = list_of_2flows
-            if _2res:
+            else: #flows finishes, append 0 packets
+                _2flows = dict(source=a['source'],
+                            destination=a['destination'],
+                            packets=0,
+                            time_constrain=10,
+                            flow_idx=flow_idx,
+                            path=a['path'])
+                list_of_2flows.append(_2flows)
+            #self.flows = list_of_2flows
+            if _2res and _2res['packets'] > 0:
                 _2res = dict(source=a['path'][1],
                             destination=a['path'][-1],
                             packets=_2res['packets'],
@@ -593,6 +602,7 @@ class SlottedGraphEnvPower:
         # if a residual flow finishes with the first node, than change him to be routed as [srs+1 -> dst]
         # if a residual flow didnot finish, update its packet quantity, and make a new residual flow for what have moved 
         # to the next node till dst
+        self.flows = list_of_2flows
         self.residual_flows += list_of_new_residuals
         return
 

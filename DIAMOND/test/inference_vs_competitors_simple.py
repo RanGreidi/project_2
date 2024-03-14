@@ -24,53 +24,53 @@ if __name__ == "__main__":
     reward_weights = dict(rate_weight=0.5, delay_weight=0, interference_weight=0, capacity_reduction_weight=0)
     #------------------------------------------------------------------------
 
-    # # number of nodes
-    # N = 4
-
-    # # Adjacency matrix
-    # # create 3x3 mesh graph
-    # A = np.array([[0, 1, 1, 1],  #means how connects to who
-    #               [1, 0, 1, 1],
-    #               [1, 1, 0, 1],
-    #               [1, 1, 1, 0]])
-
-    
-    # # P = [(0, 0), (0, 1), (0, 2),                #the position of each node
-    # #      (1, 0), (1, 1), (1, 2),
-    # #      (2, 0), (2, 1), (2, 2)]
-
-    # P = [(0, 0), (0, 1),                 #the position of each node
-    #      (1, 0), (1, 1)] 
-
-    # # capacity matrix
-    # C = 100 * np.ones((N, N))
-    # C = 100 * np.array([[1, 1, 1, 1],  #means how connects to who
-    #                     [1, 1, 1, 1],
-    #                     [1, 1, 1, 1],
-    #                     [1, 1, 1, 1]])
-    #------------------------------------------------------------------------
-   
-    N = 9
+    # number of nodes
+    N = 4
 
     # Adjacency matrix
     # create 3x3 mesh graph
-    A = np.array([[0, 1, 0, 1, 0, 0, 0, 0, 0],
-                  [1, 0, 1, 0, 1, 0, 0, 0, 0],
-                  [0, 1, 0, 0, 0, 1, 0, 0, 0],
-                  [1, 0, 0, 0, 1, 0, 1, 0, 0],
-                  [0, 1, 0, 1, 0, 1, 0, 1, 0],
-                  [0, 0, 1, 0, 1, 0, 0, 0, 1],
-                  [0, 0, 0, 1, 0, 0, 0, 1, 0],
-                  [0, 0, 0, 0, 1, 0, 1, 0, 1],
-                  [0, 0, 0, 0, 0, 1, 0, 1, 0]])
+    A = np.array([[0, 1, 1, 1],  #means how connects to who
+                  [1, 0, 1, 1],
+                  [1, 1, 0, 1],
+                  [1, 1, 1, 0]])
+
     
-    
-    P = [(0, 0), (0, 100.1), (0, 200.2),
-         (100.1, 0), (100.1, 100.1), (100.1, 200.2),
-         (200.2, 0), (200.2, 100.1), (200.2, 200.2)]
+    # P = [(0, 0), (0, 1), (0, 2),                #the position of each node
+    #      (1, 0), (1, 1), (1, 2),
+    #      (2, 0), (2, 1), (2, 2)]
+
+    P = [(0, 0), (0, 1),                 #the position of each node
+         (1, 0), (1, 1)] 
 
     # capacity matrix
     C = 100 * np.ones((N, N))
+    C = 100 * np.array([[1, 1, 1, 1],  #means how connects to who
+                        [1, 1, 1, 1],
+                        [1, 1, 1, 1],
+                        [1, 1, 1, 1]])
+    #------------------------------------------------------------------------
+   
+    # N = 9
+
+    # # Adjacency matrix
+    # # create 3x3 mesh graph
+    # A = np.array([[0, 1, 0, 1, 0, 0, 0, 0, 0],
+    #               [1, 0, 1, 0, 1, 0, 0, 0, 0],
+    #               [0, 1, 0, 0, 0, 1, 0, 0, 0],
+    #               [1, 0, 0, 0, 1, 0, 1, 0, 0],
+    #               [0, 1, 0, 1, 0, 1, 0, 1, 0],
+    #               [0, 0, 1, 0, 1, 0, 0, 0, 1],
+    #               [0, 0, 0, 1, 0, 0, 0, 1, 0],
+    #               [0, 0, 0, 0, 1, 0, 1, 0, 1],
+    #               [0, 0, 0, 0, 0, 1, 0, 1, 0]])
+    
+    
+    # P = [(0, 0), (0, 100.1), (0, 200.2),
+    #      (100.1, 0), (100.1, 100.1), (100.1, 200.2),
+    #      (200.2, 0), (200.2, 100.1), (200.2, 200.2)]
+
+    # # capacity matrix
+    # C = 100 * np.ones((N, N))
     #------------------------------------------------------------------------
 
 
@@ -79,8 +79,8 @@ if __name__ == "__main__":
 
     # flow demands
     F = [
-        {"source": 0, "destination": 8, "packets": 1000, "time_constrain": 10 , 'flow_idx': 0 },
-        {"source": 0, "destination": 8, "packets": 1000, "time_constrain": 10, 'flow_idx': 1}
+        {"source": 0, "destination": 3, "packets": 1000, "time_constrain": 10 , 'flow_idx': 0 }#,
+#        {"source": 0, "destination": 3, "packets": 100, "time_constrain": 10, 'flow_idx': 1}
     ]
 
     slotted_env = SlottedGraphEnvPower( adjacency_matrix=A,
@@ -91,7 +91,7 @@ if __name__ == "__main__":
                                         reward_weights=reward_weights,
                                         telescopic_reward = True,
                                         direction = 'minimize',
-                                        render_mode = True)
+                                        render_mode = False)
 
     slotted_diamond = SlottedDIAMOND(grrl_model_path=MODEL_PATH)
     
