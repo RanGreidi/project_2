@@ -80,7 +80,7 @@ if __name__ == "__main__":
     # flow demands
     F = [
         {"source": 0, "destination": 3, "packets": 1000, "time_constrain": 10 , 'flow_idx': 0 }#,
-#        {"source": 0, "destination": 3, "packets": 100, "time_constrain": 10, 'flow_idx': 1}
+#        {"source": 0, "destination": 3, "packets": 1000, "time_constrain": 10, 'flow_idx': 1}
     ]
 
     slotted_env = SlottedGraphEnvPower( adjacency_matrix=A,
@@ -91,7 +91,7 @@ if __name__ == "__main__":
                                         reward_weights=reward_weights,
                                         telescopic_reward = True,
                                         direction = 'minimize',
-                                        render_mode = False)
+                                        render_mode = True)
 
     slotted_diamond = SlottedDIAMOND(grrl_model_path=MODEL_PATH)
     

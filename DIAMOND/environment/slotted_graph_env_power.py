@@ -385,7 +385,7 @@ class SlottedGraphEnvPower:
                     v_pos = flow['path'].index(v)
                     if v_pos < len(flow['path']) - 1:
                         next_hop = (flow['path'][v_pos], flow['path'][v_pos+1])
-                        exist_flow = list(filter(lambda x: x[1]['flow_idx'] == flow_idx and x[1]['link'] == next_hop,
+                        exist_flow = list(filter(lambda x: x[1]['flow_idx'] == flow_idx and x[1]['link'] == next_hop and ('residual_name' in x[1]) and x[1]['residual_name'] == residual_name,
                                                 enumerate(next_active_links))) # filters next_active_links according to conditions in lambda
                         if exist_flow:
                             next_active_links[exist_flow[0][0]]['packets'] += pkt
@@ -425,7 +425,7 @@ class SlottedGraphEnvPower:
                         flow = next((dict for dict in self.residual_flows if dict.get('residual_name') == residual_name), None)
                         if pkt > 0:
                             exist_flow = list(filter(
-                                lambda x: x[1]['flow_idx'] == flow_idx and x[1]['link'] == a['link'],
+                                lambda x: x[1]['flow_idx'] == flow_idx and x[1]['link'] == a['link'] and ('residual_name' in x[1]) and x[1]['residual_name'] == residual_name,
                                 enumerate(next_active_links)))
                             if exist_flow:
                                 next_active_links[exist_flow[0][0]]['packets'] += pkt
