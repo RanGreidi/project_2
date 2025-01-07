@@ -103,7 +103,7 @@ class SlottedGraphEnvPower:
         Edges contains metadata of the network's state
         """
         # create graph
-        G = nx.from_numpy_matrix(self.adjacency_matrix, create_using=nx.DiGraph)
+        G = nx.from_numpy_array(self.adjacency_matrix, create_using=nx.DiGraph)
         # assign attributes
         self.graph = G
         self.nodes = list(G.nodes)
