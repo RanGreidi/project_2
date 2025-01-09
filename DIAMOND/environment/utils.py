@@ -140,9 +140,9 @@ def one_link_transmission(c, packets):
     if sum(packets) <= c:
         return [0] * len(packets)
 
-    count = len(packets) - len([p for p in packets if p == 0])
-    q = c // count
-    r = c % count
+    count = len(packets) - len([p for p in packets if p == 0]) # counts how many transmit on the same link
+    q = c / count # c // count
+    r = 0         # c % count
     new_packs = []
     for p in packets:
         new_packs.append(p - min(p, q))
@@ -330,7 +330,7 @@ def plot_graph(graph,graph_pos, labels, total_time_slots):
 
     plt.axis('off')
 
-    comment = f"Time step: {total_time_slots}"
+    comment = f"Time step [SEC]: {total_time_slots}"
     plt.text(0.5, -0.1, comment, ha='center', va='center', transform=plt.gca().transAxes)
     plt.savefig('graph.png')
     plt.close()

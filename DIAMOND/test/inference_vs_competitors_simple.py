@@ -42,9 +42,9 @@ if __name__ == "__main__":
     P = [(0, 0), (0, 1),                 #the position of each node
          (1, 0), (1, 1)] 
 
-    # capacity matrix
-    C = 100 * np.ones((N, N))
-    C = 100 * np.array([[1, 1, 1, 1],  #means how connects to who
+    # BW matrix [MHz]
+    C = 1 * np.ones((N, N))
+    C = 1 * np.array([[1, 1, 1, 1],  #means how connects to who
                         [1, 1, 1, 1],
                         [1, 1, 1, 1],
                         [1, 1, 1, 1]])
@@ -79,8 +79,8 @@ if __name__ == "__main__":
 
     # flow demands
     F = [
-        {"source": 0, "destination": 3, "packets": 1000, "time_constrain": 10 , 'flow_idx': 0 }#,
-#        {"source": 0, "destination": 3, "packets": 1000, "time_constrain": 10, 'flow_idx': 1}
+        {"source": 0, "destination": 3, "packets": 1000, "time_constrain": 10 , 'flow_idx': 0 }, #Packets [MegaBytes]
+        {"source": 0, "destination": 3, "packets": 1000, "time_constrain": 10, 'flow_idx': 1}
     ]
 
     slotted_env = SlottedGraphEnvPower( adjacency_matrix=A,
@@ -91,9 +91,35 @@ if __name__ == "__main__":
                                         reward_weights=reward_weights,
                                         telescopic_reward = True,
                                         direction = 'minimize',
+                                        slot_duration=60,          # [in SEC]
+                                        Tot_num_of_timeslots = 60, # [in Minutes]
                                         render_mode = True)
 
     slotted_diamond = SlottedDIAMOND(grrl_model_path=MODEL_PATH)
     
     diamond_paths, slotted_grrl_rates_data, slotted_grrl_delay_data = slotted_diamond(slotted_env, grrl_data=True)
 
+''' 
+Guide for AVIV:
+
+12:00 - [ 12:01 12:02 12:03 ... 12:59] - 13:00
+            
+
+                12:00 -> 13:00                 This duration is *Tot_num_of_timeslots* in agent.run fucntion (defined within)      
+
+                12:01 -> 12:02                 This duration is *slot_duration* defined in SlottedGraphEnvPower initialization
+
+
+ To Run a scenario where we decide one on allocation in an hour: 
+    define Tot_num_of_timeslots = 1
+    define slot_duration  = 60*60 [SEC] (if units units of capacity are in seconds, else 60 if units of capacity arew in minutes)
+
+ Note: 
+ if  Tot_num_of_timeslots = 1000 and slot_duration = 60*60, when git a decision making every hour for 1000 hours
+
+
+In case of a total run of one hour, and we want to make 60 decisions (new route every minutes):
+    define Tot_num_of_timeslots = 60
+    define slot_duration = 60 [SEC] (if units units of capacity are in seconds, else 60 if units of capacity arew in minutes)
+
+'''
