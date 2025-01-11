@@ -153,7 +153,7 @@ class SlottedGraphEnvPower:
                     if (u,v) in label_dict:
                         label_dict[(u,v)] += (f"\n Total channel Bandwidth: {bandwidth[u,v]}")
         
-        plot_graph(self.graph, self.graph_pos, label_dict, total_time_slots+1)
+        plot_graph(self.graph, self.graph_pos, label_dict, total_time_slots)
         
     def gen_edge_data(self):
         self.eids = dict()
@@ -485,7 +485,8 @@ class SlottedGraphEnvPower:
 
         # 3. plot & reset & save interferences for next global step
         if self.render_mode: 
-            self.show_graph(next_active_links, total_time_slots, plot_rate)
+            # self.show_graph(next_active_links, total_time_slots, plot_rate)
+            self.show_graph(active_links, total_time_slots, plot_rate)
         if next_active_links:
             #self.cumulative_link_interference += self.current_link_interference
             if np.mean(self.current_link_interference) > np.mean(self.cumulative_link_interference):
@@ -501,7 +502,7 @@ class SlottedGraphEnvPower:
         @output: 
         """
 
-        #active links first generation
+        # active links first generation
         if self.flows:
             self.allocated.append(action)
             if not eval_path:
@@ -759,10 +760,13 @@ class SlottedGraphEnvPower:
         self.__init_links()
         self.prev_reward = None
         self.allocated = []
+        # prev_residuals = self.residual_flows
+        # self.residual_flows  = []
         self.routing_metrics = dict(rate=dict(rate_per_flow=self.demands.copy()),
                                     delay=dict(end_to_end_delay_per_flow=np.zeros(self.num_flows)))
         observation = self.__get_observation()
 
+        # There is am option to output the residuals from previous time slot (prev_residuals)
         return observation
 
     def step(self, action, eval_path=False):

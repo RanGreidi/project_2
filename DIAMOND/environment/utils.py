@@ -326,12 +326,12 @@ def plot_graph(graph,graph_pos, labels, total_time_slots):
     # plot
     plt.figure()
     nx.draw_networkx(graph, graph_pos, with_labels=True, node_color="tab:blue")
-    nx.draw_networkx_edge_labels(graph, graph_pos, edge_labels=labels, font_color='red', label_pos=0.5)
+    nx.draw_networkx_edge_labels(graph, graph_pos, edge_labels=labels, font_color='red', label_pos=0.5,font_size=6)
 
     plt.axis('off')
 
     comment = f"Time step [SEC]: {total_time_slots}"
-    plt.text(0.5, -0.1, comment, ha='center', va='center', transform=plt.gca().transAxes)
+    plt.text(0.5, -0.1, comment, ha='center', va='center', transform=plt.gca().transAxes,fontsize=4)
     plt.savefig('graph.png')
     plt.close()
     return

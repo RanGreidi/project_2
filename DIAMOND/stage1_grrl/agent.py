@@ -140,9 +140,10 @@ class SlottedGRRL:
         reward = 0
         Tot_num_of_timeslots = env.Tot_num_of_timeslots
 
-        manual_actions = [[0,2],[1,1]]
+        manual_actions = [[0,0],[1,1]]
 
         for _ in range(Tot_num_of_timeslots): # as long there is still flows running (determines the num of time_slotes in one episode)
+            
             for step in range(env.num_flows):
                 a = self._select_action(state, env.possible_actions[step])
                 action = manual_actions[step] #action = [step, a]

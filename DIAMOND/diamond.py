@@ -73,6 +73,8 @@ class SlottedDIAMOND:
         self.nb3r_tmpr = nb3r_tmpr
 
     def __call__(self, env, grrl_data=False):
+        
+        #################### central computer in network computes allocations  #################### 
         # stage 1
         rl_actions, rl_paths, rl_reward = self.slotted_grrl.run(env=env)
         rl_actions.sort(key=lambda x: x[0])
@@ -95,10 +97,46 @@ class SlottedDIAMOND:
                            initial_temperature=self.nb3r_tmpr)
         # routs
         routs = env.get_routs(nb3r_action)
+        
+        ####################  The actual run and evaluation of packets in the network   #################### 
+        # _ = self.real_run(env, actions_recipe)
+
+
 
         if grrl_data:
             return routs, rl_rates_data, rl_delay_data
         return routs
+
+    def real_run(self,env, actions_recipe = None):
+        '''
+        This function simulate the Real packet flow after the centarl computer has computed the allocations. Once we get the recipe from the agent.
+        each time slot, we can simulate the network and get the results according to the recipe. Here we loop on the time slots, and input to the Env all flows 
+        according to the receipe (Each time slots, all flows are input to the env).
+        '''
+        actions = []
+        paths = []
+        state = env.reset()
+
+        Tot_num_of_timeslots = env.Tot_num_of_timeslots
+
+        debug_manual_recipe = [[[0,0],[1,3]] for i in range(Tot_num_of_timeslots)] # example of recipe
+
+        for slot_indx in range(Tot_num_of_timeslots):
+            '''
+            This function get the recipe from thre agent, and simulate the actual netwrok after agent provided with the recipe of what
+            to alocate each time slot (so essentially, this function is the real run of the network).
+            '''
+            self.simualte_real_time_slot(env, debug_manual_recipe[slot_indx]) #self.simualte_real_time_slot(env, actions_recipe[slot_indx])
+            env.end_of_step_update()
+            print('Time Slot: ', slot_indx)
+        
+        return 
+        
+    def simualte_real_time_slot(self, env, actions):
+        # Input all flows at once and run them in the network
+        for flow in range(env.num_flows):
+            action = actions[flow] #action = [step, a]
+            state, r = env.step(action)
 
     @staticmethod
     def rates_objective(env, actions):

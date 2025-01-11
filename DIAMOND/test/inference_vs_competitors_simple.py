@@ -70,7 +70,7 @@ if __name__ == "__main__":
     #      (200.2, 0), (200.2, 100.1), (200.2, 200.2)]
 
     # # capacity matrix
-    # C = 100 * np.ones((N, N))
+    # C = 1 * np.ones((N, N))
     #------------------------------------------------------------------------
 
 
@@ -91,7 +91,7 @@ if __name__ == "__main__":
                                         reward_weights=reward_weights,
                                         telescopic_reward = True,
                                         direction = 'minimize',
-                                        slot_duration=60,          # [in SEC]
+                                        slot_duration=5,          # [in SEC]
                                         Tot_num_of_timeslots = 60, # [in Minutes]
                                         render_mode = True)
 
@@ -122,4 +122,10 @@ In case of a total run of one hour, and we want to make 60 decisions (new route 
     define Tot_num_of_timeslots = 60
     define slot_duration = 60 [SEC] (if units units of capacity are in seconds, else 60 if units of capacity arew in minutes)
 
+    
+
+it goes like this: we set slot_duration at the begining, and decide its units (seconds\ miliseonds etc...). Say we decide it is in seconds.
+Then we decide slot duration, say we set it to 60. This sets the simulation resulotion to one second, and each time slot in one minute, 
+and the simulation will run Tot_num_of_timeslots. if (Tot_num_of_timeslots = 60) it will run for one hour.
+            
 '''
