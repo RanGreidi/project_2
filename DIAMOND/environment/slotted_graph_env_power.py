@@ -250,7 +250,7 @@ class SlottedGraphEnvPower:
         if 'gain' in power_mode:
             channel_gain = self.kwargs.get('channel_gain', np.random.uniform(low=0.5, high=1, size=L)) * np.ones(L)
         p_max = self.kwargs.get('max_trx_power', 1) * np.ones(L)
-        trx_power = 10*channel_gain * np.minimum(p_max, 1 / channel_coeff)  # P_l
+        trx_power = channel_gain * np.minimum(p_max, 1 / channel_coeff)  # P_l
         if power_mode == 'steps':
             rng = np.max(self.links_length) - np.min(self.links_length)
 
@@ -583,10 +583,10 @@ class SlottedGraphEnvPower:
         list_of_2flows = []
         for a in self.flows:
             flow_idx = a['flow_idx']
-             #next we looks only at links that is not residual and belong to flow a (there can be only 2)
+            # next we looks only at links that is not residual and belong to flow a (there can be only 2)
             list_of_links_4flow_a = [d for d in sorted_active_links if d.get('flow_idx') == flow_idx and not d.get('residual_name')]
             _2flows = next((d for d in list_of_links_4flow_a if d.get('link')[0] == a['source']), {})
-            _2res = next((d for d in list_of_links_4flow_a if d.get('link')[0] != a['source']), {})
+            _2res = [d for d in list_of_links_4flow_a if d.get('link')[0] != a['source']]
             list_of_links_4flow_a.remove(_2flows) if _2flows else None
             if _2flows:
                 _2flows = dict(source=a['source'],
@@ -605,16 +605,17 @@ class SlottedGraphEnvPower:
                             path=a['path'])
                 list_of_2flows.append(_2flows)
             #self.flows = list_of_2flows
-            if _2res and _2res['packets'] > 0:
-                _2res = dict(source=a['path'][1],
-                            destination=a['path'][-1],
-                            packets=_2res['packets'],
-                            time_constrain=10,
-                            flow_idx=flow_idx,
-                            path=a['path'][1:],
-                            residual_name=generate_name())
-                #self.residual_flows.append(_2res)                
-                list_of_new_residuals.append(_2res)
+            for res in _2res:
+                if res and res['packets'] > 0:
+                    res = dict( source=res['link'][0],
+                                destination=a['path'][-1],
+                                packets=res['packets'],
+                                time_constrain=10,
+                                flow_idx=flow_idx,
+                                path=a['path'][a['path'].index(res['link'][0]):],
+                                residual_name=generate_name())
+                    #self.residual_flows.append(_2res)                
+                    list_of_new_residuals.append(res)
         
         # update old residuals or make new residuals:
         # if a residual flow finishes with the first node, than change him to be routed as [srs+1 -> dst]

@@ -140,7 +140,7 @@ class SlottedGRRL:
         reward = 0
         Tot_num_of_timeslots = env.Tot_num_of_timeslots
 
-        manual_actions = [[0,0],[1,1]]
+        manual_actions = [[0,0],[1,3]]
 
         for _ in range(Tot_num_of_timeslots): # as long there is still flows running (determines the num of time_slotes in one episode)
             
