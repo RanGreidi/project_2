@@ -321,17 +321,19 @@ class SlottedGraphEnvPower:
 
     def _transmit_singe_timestep(self, active_links , total_time_slots):
         """ send packet over all links in active_links for a single time-step """
+        
+        ## produce action dict ###
         next_flows_list = []
         action_dict = {}
         for l1 in range(len(active_links)):
             if 'residual_name' in active_links[l1]:
                 shared_resource = dict(link=active_links[l1]['link'],
                                    packets=[active_links[l1]['packets']],
-                                   flows_idxs=[(active_links[l1]['flow_idx'],active_links[l1]['residual_name'])])                
+                                   flows_idxs=[(active_links[l1]['flow_idx'], active_links[l1]['residual_name'])])                
             else:
                 shared_resource = dict(link=active_links[l1]['link'],
                                     packets=[active_links[l1]['packets']],
-                                    flows_idxs=[(active_links[l1]['flow_idx'],None)])
+                                    flows_idxs=[(active_links[l1]['flow_idx'], None)])
                 
             for l2 in range(l1+1, len(active_links)):
                 # find transmission over the same link
@@ -343,7 +345,8 @@ class SlottedGraphEnvPower:
                         shared_resource['flows_idxs'].append((active_links[l2]['flow_idx'],None))
             if str(shared_resource['link']) not in action_dict.keys():
                 action_dict[str(shared_resource['link'])] = shared_resource
-
+        ## end produce action dict ###
+        
         # 1. update interference on the link
         for a in action_dict.values():
             u = a["link"][0]
@@ -502,7 +505,8 @@ class SlottedGraphEnvPower:
         @output: 
         """
 
-        # active links first generation
+        ###### ---active links first generation--- ###### 
+        # This part converts the entring flows into the first active_link list in the time slot #
         if self.flows:
             self.allocated.append(action)
             if not eval_path:
@@ -520,7 +524,7 @@ class SlottedGraphEnvPower:
             # active_links is a list of dicts with srs,dst,rout,packet. it changes throughut an episode
             active_links = [dict(flow_idx=f_idx,
                                  link=(f['path'][0], f['path'][1]),
-                                 packets=f['packets'])                   for i, (f_idx, f) in enumerate(active_flows)]
+                                 packets=f['packets'])                   for i,(f_idx, f) in enumerate(active_flows)]
         else: active_links = []
 
 
@@ -533,7 +537,9 @@ class SlottedGraphEnvPower:
         else: residual_active_links = []
 
         active_links += residual_active_links
-            
+        ##########################  end of active links first generation  ##################################            
+
+
         total_time_stemp_in_single_slot = 0
         metadata = []
         while active_links:
