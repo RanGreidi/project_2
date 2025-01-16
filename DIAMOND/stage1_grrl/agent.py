@@ -148,10 +148,10 @@ class SlottedGRRL:
                 # TODO allocate residual flows to graph each flow in the MDP all over again
                 a = self._select_action(state, env.possible_actions[step])
                 # action = manual_actions[step] #action = [step, a]
-                action = action = [step, a] 
+                action = [step, a] 
                 actions.append(action)
                 paths.append(env.possible_actions[action[0]][action[1]])
                 state, r = env.step(action)
                 reward += r
-            env.end_of_step_update()
+            state,data = env.end_of_step_update(state)
         return actions, paths, reward

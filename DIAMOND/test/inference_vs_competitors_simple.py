@@ -63,13 +63,13 @@ if __name__ == "__main__":
                   [0, 0, 0, 1, 0, 0, 0, 1, 0],
                   [0, 0, 0, 0, 1, 0, 1, 0, 1],
                   [0, 0, 0, 0, 0, 1, 0, 1, 0]])
-    
-    
-    P = [(0, 0), (0, 100.1), (0, 200.2),
-         (100.1, 0), (100.1, 100.1), (100.1, 200.2),
-         (200.2, 0), (200.2, 100.1), (200.2, 200.2)]
 
-    # capacity matrix
+    
+    P = [(0.0, 0), (0.0, 0.01), (0.0, 0.02),
+         (0.1, 0), (0.1, 0.01), (0.1, 0.02),
+         (0.2, 0), (0.2, 0.01), (0.2, 0.02)]
+
+    # BW matrix
     C = 1 * np.ones((N, N))
     #------------------------------------------------------------------------
 
@@ -79,8 +79,10 @@ if __name__ == "__main__":
 
     # flow demands
     F = [
-        {"source": 0, "destination": 3, "packets": 1000, "time_constrain": 10 , 'flow_idx': 0 }, #Packets [MegaBytes]
-        {"source": 0, "destination": 3, "packets": 1000, "time_constrain": 10, 'flow_idx': 1}
+        {"source": 0, "destination": 8, "packets": 55, "time_constrain": 10 , 'flow_idx': 0 }, #Packets [MegaBytes]
+        {"source": 0, "destination": 8, "packets": 1000, "time_constrain": 10, 'flow_idx': 1}#, #Packets [MegaBytes]
+        # {"source": 0, "destination": 8, "packets": 1, "time_constrain": 10, 'flow_idx': 2}, #Packets [MegaBytes]
+        # {"source": 0, "destination": 8, "packets": 1000, "time_constrain": 10, 'flow_idx': 3}
     ]
 
     slotted_env = SlottedGraphEnvPower( adjacency_matrix=A,
@@ -91,9 +93,11 @@ if __name__ == "__main__":
                                         reward_weights=reward_weights,
                                         telescopic_reward = True,
                                         direction = 'minimize',
-                                        slot_duration=5,          # [in SEC]
+                                        slot_duration=60,          # [in SEC]
                                         Tot_num_of_timeslots = 60, # [in Minutes]
-                                        render_mode = True)
+                                        render_mode = True,
+                                        trx_power_mode='gain',
+                                        channel_gain = 100)
 
     slotted_diamond = SlottedDIAMOND(grrl_model_path=MODEL_PATH)
     

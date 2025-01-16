@@ -267,13 +267,13 @@ class SlottedGraphEnvPower:
         """
         L = self.num_edges // 2
         power_mode = self.kwargs.get('trx_power_mode', 'equal')
-        assert power_mode in ('equal', 'rayleigh', 'rayleigh_gain', 'steps'), f'Invalid power mode. got {power_mode}'
+        assert power_mode in ('equal', 'rayleigh', 'rayleigh_gain', 'steps', 'gain'), f'Invalid power mode. got {power_mode}'
         channel_coeff = np.ones(L)
         channel_gain = np.ones(L)
         if 'rayleigh' in power_mode:
             channel_coeff = np.random.rayleigh(scale=self.kwargs.get('rayleigh_scale', 1), size=L)
         if 'gain' in power_mode:
-            channel_gain = self.kwargs.get('channel_gain', np.random.uniform(low=0.5, high=1, size=L)) * np.ones(L)
+            channel_gain = self.kwargs.get('channel_gain', np.random.uniform(low=0.1, high=10, size=L)) * np.ones(L)
         p_max = self.kwargs.get('max_trx_power', 1) * np.ones(L)
         trx_power = channel_gain * np.minimum(p_max, 1 / channel_coeff)  # P_l
         if power_mode == 'steps':
@@ -342,7 +342,8 @@ class SlottedGraphEnvPower:
         trx_power = self.trx_power[self.eids[s, d]]  # P_l
         self.current_link_interference += self.interference_map[self.eids[s, d]]  # I_l
         sinr = trx_power / (self.current_link_interference + 1)  # SINR_l
-        self.current_link_capacity = np.maximum(1, self.bandwidth_edge_list * np.log2(1 + sinr)) # np.minimum(self.bandwidth_edge_list, np.maximum(1, np.floor(self.bandwidth_edge_list * np.log2(1 + sinr))))
+        # self.current_link_capacity = np.maximum(1, self.bandwidth_edge_list * np.log2(1 + sinr)) # np.minimum(self.bandwidth_edge_list, np.maximum(1, np.floor(self.bandwidth_edge_list * np.log2(1 + sinr))))
+        self.current_link_capacity = self.bandwidth_edge_list * np.log2(1 + sinr) # np.minimum(self.bandwidth_edge_list, np.maximum(1, np.floor(self.bandwidth_edge_list * np.log2(1 + sinr))))
 
     def _transmit_singe_timestep(self, active_links , total_time_slots):
         """ send packet over all links in active_links for a single time-step """
@@ -517,7 +518,6 @@ class SlottedGraphEnvPower:
 
         # 3. plot & reset & save interferences for next global step
         if self.render_mode: 
-            # self.show_graph(next_active_links, total_time_slots, plot_rate)
             self.show_graph(active_links, total_time_slots, plot_rate)
         if next_active_links:
             #self.cumulative_link_interference += self.current_link_interference
@@ -571,7 +571,7 @@ class SlottedGraphEnvPower:
 
         total_time_stemp_in_single_slot = 0
         metadata = []
-        while active_links:
+        while True:
             # transmit single hop for all flows
             if total_time_stemp_in_single_slot < self.slot_duration: 
                 active_links, hop_metadata = self._transmit_singe_timestep(active_links, total_time_stemp_in_single_slot)
@@ -631,15 +631,15 @@ class SlottedGraphEnvPower:
                             flow_idx=flow_idx,
                             path=a['path'])
                 list_of_2flows.append(_2flows)
-            else: #flows finishes, append 0 packets
-                _2flows = dict(source=a['source'],
-                            destination=a['destination'],
-                            packets=0,
-                            time_constrain=10,
-                            flow_idx=flow_idx,
-                            path=a['path'])
-                list_of_2flows.append(_2flows)
-            #self.flows = list_of_2flows
+            # else: #flows finishes, append 0 packets
+            #     _2flows = dict(source=a['source'],
+            #                 destination=a['destination'],
+            #                 packets=0,
+            #                 time_constrain=10,
+            #                 flow_idx=flow_idx,
+            #                 path=a['path'])
+            #     list_of_2flows.append(_2flows)
+
             for res in _2res:
                 if res and res['packets'] > 0:
                     res = dict( source=res['link'][0],
@@ -700,10 +700,39 @@ class SlottedGraphEnvPower:
 
         return reward
 
-    def end_of_step_update(self):
-        self.allocated = []
+    def end_of_step_update(self,state):
+        '''
+        this function reset the part in state that is needed to be resets (demands) betwwen each time slot
+        and output data for our likings betwwens time slots
+        '''
         data = self.get_rates_data()
-        return data
+
+        self.allocated = []
+        # from time slot to time slot, we need to reset the demand observation
+        allocated = [False] * len(self.flows)
+        for i, a in enumerate(self.allocated):
+            allocated[a[0]] = True
+
+        allocated = [a[0] for a in self.allocated]
+        free_actions = list(set(range(len(self.flows))) - set(allocated)) # unassinged flows, EMPTY free_actions means we are in the last flow in the slot
+        free_paths = []
+        free_paths_idx = []
+        demand = []
+        for a in free_actions:
+            p = self.possible_actions[a]        #posible routs for unassigned flow a
+            free_paths_idx += [[a, k] for k in range(len(p))]
+            free_paths += p
+            demand += [self.flows[a]["packets"] for k in p]
+
+        # demand
+        if free_actions: # if we are not in the last time step of the time slot, than we can calculate the demand
+            normalized_demand = np.array(demand).astype(np.float32) / self.max_demand
+        else: # if we are in the last time step of the time slot, return initialzed demand
+            normalized_demand = None
+
+        new_state = state[0], state[1], free_paths, free_paths_idx, normalized_demand
+
+        return new_state,data
 
     def get_delay_data(self):
         data = self.routing_metrics.get('delay')
@@ -772,7 +801,7 @@ class SlottedGraphEnvPower:
             allocated[a[0]] = True
 
         allocated = [a[0] for a in self.allocated]
-        free_actions = list(set(range(len(self.flows))) - set(allocated)) # unassinged flows
+        free_actions = list(set(range(len(self.flows))) - set(allocated)) # unassinged flows, EMPTY free_actions means we are in the last flow in the slot
         free_paths = []
         free_paths_idx = []
         demand = []
@@ -783,8 +812,10 @@ class SlottedGraphEnvPower:
             demand += [self.flows[a]["packets"] for k in p]
 
         # demand
-        #normalized_demand = np.array(demand).astype(np.float32) / self.max_demand
-        normalized_demand =  np.array([10000, 10000, 10000, 10000]).astype(np.float32) / 10000
+        if free_actions: # if we are not in the last time step of the time slot, than we can calculate the demand
+            normalized_demand = np.array(demand).astype(np.float32) / self.max_demand
+        else: # if we are in the last time step of the time slot, return initialzed demand
+            normalized_demand = None
 
         # if self.tf_env:
         #     return self.__get_tf_state()
@@ -804,7 +835,7 @@ class SlottedGraphEnvPower:
 
         # There is am option to output the residuals from previous time slot (prev_residuals)
         return observation
-
+    
     def step(self, action, eval_path=False):
         """
         action = (flow_idx, channels_per_link)
