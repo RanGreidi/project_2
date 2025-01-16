@@ -24,53 +24,53 @@ if __name__ == "__main__":
     reward_weights = dict(rate_weight=0.5, delay_weight=0, interference_weight=0, capacity_reduction_weight=0)
     #------------------------------------------------------------------------
 
-    # number of nodes
-    N = 4
-
-    # Adjacency matrix
-    # create 3x3 mesh graph
-    A = np.array([[0, 1, 1, 1],  #means how connects to who
-                  [1, 0, 1, 1],
-                  [1, 1, 0, 1],
-                  [1, 1, 1, 0]])
-
-    
-    # P = [(0, 0), (0, 1), (0, 2),                #the position of each node
-    #      (1, 0), (1, 1), (1, 2),
-    #      (2, 0), (2, 1), (2, 2)]
-
-    P = [(0, 0), (0, 1),                 #the position of each node
-         (1, 0), (1, 1)] 
-
-    # BW matrix [MHz]
-    C = 1 * np.ones((N, N))
-    C = 1 * np.array([[1, 1, 1, 1],  #means how connects to who
-                        [1, 1, 1, 1],
-                        [1, 1, 1, 1],
-                        [1, 1, 1, 1]])
-    #------------------------------------------------------------------------
-   
-    # N = 9
+    # # number of nodes
+    # N = 4
 
     # # Adjacency matrix
     # # create 3x3 mesh graph
-    # A = np.array([[0, 1, 0, 1, 0, 0, 0, 0, 0],
-    #               [1, 0, 1, 0, 1, 0, 0, 0, 0],
-    #               [0, 1, 0, 0, 0, 1, 0, 0, 0],
-    #               [1, 0, 0, 0, 1, 0, 1, 0, 0],
-    #               [0, 1, 0, 1, 0, 1, 0, 1, 0],
-    #               [0, 0, 1, 0, 1, 0, 0, 0, 1],
-    #               [0, 0, 0, 1, 0, 0, 0, 1, 0],
-    #               [0, 0, 0, 0, 1, 0, 1, 0, 1],
-    #               [0, 0, 0, 0, 0, 1, 0, 1, 0]])
-    
-    
-    # P = [(0, 0), (0, 100.1), (0, 200.2),
-    #      (100.1, 0), (100.1, 100.1), (100.1, 200.2),
-    #      (200.2, 0), (200.2, 100.1), (200.2, 200.2)]
+    # A = np.array([[0, 1, 1, 1],  #means how connects to who
+    #               [1, 0, 1, 1],
+    #               [1, 1, 0, 1],
+    #               [1, 1, 1, 0]])
 
-    # # capacity matrix
+    
+    # # P = [(0, 0), (0, 1), (0, 2),                #the position of each node
+    # #      (1, 0), (1, 1), (1, 2),
+    # #      (2, 0), (2, 1), (2, 2)]
+
+    # P = [(0, 0), (0, 1),                 #the position of each node
+    #      (1, 0), (1, 1)] 
+
+    # # BW matrix [MHz]
     # C = 1 * np.ones((N, N))
+    # C = 1 * np.array([[1, 1, 1, 1],  #means how connects to who
+    #                     [1, 1, 1, 1],
+    #                     [1, 1, 1, 1],
+    #                     [1, 1, 1, 1]])
+    #------------------------------------------------------------------------
+   
+    N = 9
+
+    # Adjacency matrix
+    # create 3x3 mesh graph
+    A = np.array([[0, 1, 0, 1, 0, 0, 0, 0, 0],
+                  [1, 0, 1, 0, 1, 0, 0, 0, 0],
+                  [0, 1, 0, 0, 0, 1, 0, 0, 0],
+                  [1, 0, 0, 0, 1, 0, 1, 0, 0],
+                  [0, 1, 0, 1, 0, 1, 0, 1, 0],
+                  [0, 0, 1, 0, 1, 0, 0, 0, 1],
+                  [0, 0, 0, 1, 0, 0, 0, 1, 0],
+                  [0, 0, 0, 0, 1, 0, 1, 0, 1],
+                  [0, 0, 0, 0, 0, 1, 0, 1, 0]])
+    
+    
+    P = [(0, 0), (0, 100.1), (0, 200.2),
+         (100.1, 0), (100.1, 100.1), (100.1, 200.2),
+         (200.2, 0), (200.2, 100.1), (200.2, 200.2)]
+
+    # capacity matrix
+    C = 1 * np.ones((N, N))
     #------------------------------------------------------------------------
 
 
@@ -91,7 +91,7 @@ if __name__ == "__main__":
                                         reward_weights=reward_weights,
                                         telescopic_reward = True,
                                         direction = 'minimize',
-                                        slot_duration=1,          # [in SEC]
+                                        slot_duration=5,          # [in SEC]
                                         Tot_num_of_timeslots = 60, # [in Minutes]
                                         render_mode = True)
 
