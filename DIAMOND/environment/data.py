@@ -18,7 +18,9 @@ def _get_random_flows(num_nodes, num_flows, demands=[100], seed=1):
         src, dst = random.sample(range(num_nodes), 2)
         f = {"source": src,
              "destination": dst,
-             "packets": random.choice(demands)}
+             "packets": random.choice(demands),
+             "flow_idx": _}
+
         result.append(f)
     return result
 
@@ -39,7 +41,11 @@ def generate_env(num_nodes=10,
                  reward_balance=0.8,
                  seed=37,
                  graph_mode='random',
+                 render_mode=True,
+                 slot_duration=60,  # [SEC]
+                 Tot_num_of_timeslots=60,  # [Minutes]
                  **kwargs):
+
     # assert graph_mode.lower() in ['random', 'nsfnet', 'geant']
     assert graph_mode.lower() in ['random', 'nsfnet', 'geant', 'grid', 'irregular_grid_8x8', 'irregular_grid_6x6']
 
@@ -105,14 +111,17 @@ def generate_env(num_nodes=10,
                    **kwargs)
 
     slotted_env = SlottedGraphEnvPower(adjacency_matrix=adjacency,
-                   bandwidth_matrix=capacity_matrix,
-                   interference_matrix=interference_matrix,
-                   node_positions=positions,
-                   flows=flows,
-                   k=num_actions,
-                   direction=direction,
-                   reward_balance=reward_balance,
-                   seed=seed,
-                   **kwargs)
+                                       bandwidth_matrix=capacity_matrix,
+                                       interference_matrix=interference_matrix,
+                                       node_positions=positions,
+                                       flows=flows,
+                                       k=num_actions,
+                                       direction=direction,
+                                       reward_balance=reward_balance,
+                                       seed=seed,
+                                       render_mode=render_mode,
+                                       slot_duration=slot_duration,  # [SEC]
+                                       Tot_num_of_timeslots=Tot_num_of_timeslots,  # [Minutes]
+                                       **kwargs)
 
     return env,slotted_env

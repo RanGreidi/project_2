@@ -2,6 +2,7 @@ import torch
 from torch.distributions import Categorical
 import sys
 import os
+
 sys.path.insert(0, os.path.join("DIAMOND", "stage1_grrl"))
 
 
@@ -9,12 +10,13 @@ class GRRL:
     """
     Implementation of the GRRL agent (a.k.a stage_1)
     """
+
     def __init__(self, path):
         """
         :param path: path to pre-trained model
         """
         # Set the device
-        #self.device = torch.device("cuda:0" if torch.cuda.is_available else "cpu")
+        # self.device = torch.device("cuda:0" if torch.cuda.is_available else "cpu")
         self.device = torch.device('cpu')
         # set path
         self.path = path
@@ -81,12 +83,13 @@ class SlottedGRRL:
     """
     Implementation of the GRRL agent (a.k.a stage_1)
     """
+
     def __init__(self, path):
         """
         :param path: path to pre-trained model
         """
         # Set the device
-        #self.device = torch.device("cuda:0" if torch.cuda.is_available else "cpu")
+        # self.device = torch.device("cuda:0" if torch.cuda.is_available else "cpu")
         self.device = torch.device('cpu')
         # set path
         self.path = path
@@ -128,28 +131,38 @@ class SlottedGRRL:
 
         return int(action.cpu().detach().numpy())
 
-    def run(self, env):
+    def run(self, env, arrival_matrix=None):
         """
         run GRRL to get flow allocations
         :param env: environment to interact with
+        :param arrival_matrix: future_demand
         :return: action indices, paths and rewards
         """
         actions = []
-        paths = []
+        paths = [[] for _ in range(env.num_flows)]
         state = env.reset()
         reward = 0
         Tot_num_of_timeslots = env.Tot_num_of_timeslots
 
         manual_actions = [[0, 0], [1, 3]]
 
-        for _ in range(Tot_num_of_timeslots): # as long there is still flows running (determines the num of time_slotes in one episode)
-            
+        for timeslot in range(Tot_num_of_timeslots):  # as long there is still flows running (determines the num of time_slotes in one episode)
+
             for step in range(env.num_flows):
                 a = self._select_action(state, env.possible_actions[step])
-                action = manual_actions[step] #action = [step, a]
+                # action = manual_actions[step]  # action = [step, a]
+                action = [step, a]
                 actions.append(action)
-                paths.append(env.possible_actions[action[0]][action[1]])
+                paths[step].append(env.possible_actions[action[0]][action[1]])
                 state, r = env.step(action)
                 reward += r
             env.end_of_step_update()
+            self.update_flows(env=env, timeslot=timeslot, arrival_matrix=arrival_matrix)
+            # Todo: needs to update state for next GNN decision
+
         return actions, paths, reward
+
+    def update_flows(self, env, timeslot, arrival_matrix):
+        if arrival_matrix is not None:
+            for flow_id, flow in enumerate(env.flows):
+                flow['packets'] += arrival_matrix[timeslot][flow_id]
