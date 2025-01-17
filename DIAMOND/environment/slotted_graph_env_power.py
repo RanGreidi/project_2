@@ -578,7 +578,7 @@ class SlottedGraphEnvPower:
                 metadata.append(hop_metadata)
                 total_time_stemp_in_single_slot += 1       
             else:
-                if len(self.allocated) == len(self.flows):  # if finish all flow at a time slot than
+                if len(self.allocated) == len(self.flows):  # if finish all flow at a time slot
                     self.update_flows(active_links,action)
                     self.slot_num +=1
                 break
@@ -616,6 +616,7 @@ class SlottedGraphEnvPower:
         sorted_active_links = sorted(active_links, key=lambda x: x.get('flow_idx', 0))
         list_of_new_residuals = []
         list_of_2flows = []
+        ii=0
         for a in self.flows:
             flow_idx = a['flow_idx']
             # next we looks only at links that is not residual and belong to flow a (there can be only 2)
@@ -628,8 +629,9 @@ class SlottedGraphEnvPower:
                             destination=a['destination'],
                             packets=_2flows['packets'],
                             time_constrain=10,
-                            flow_idx=flow_idx,
+                            flow_idx=ii,
                             path=a['path'])
+                ii+=1
                 list_of_2flows.append(_2flows)
             # else: #flows finishes, append 0 packets
             #     _2flows = dict(source=a['source'],
@@ -652,11 +654,21 @@ class SlottedGraphEnvPower:
                     #self.residual_flows.append(_2res)                
                     list_of_new_residuals.append(res)
         
+        # delete finished flows from self.allocated:
+        in_flows = [fl['flow_idx'] for fl in list_of_2flows]
+        new_allocated = []
+        for flw in self.allocated:
+            if flw[0] in in_flows:
+                new_allocated.append(flw)
+        self.allocated = new_allocated
+        
         # update old residuals or make new residuals:
         # if a residual flow finishes with the first node, than change him to be routed as [srs+1 -> dst]
         # if a residual flow didnot finish, update its packet quantity, and make a new residual flow for what have moved 
         # to the next node till dst
+
         self.flows = list_of_2flows
+        self.num_flows = len(self.flows)
         self.residual_flows += list_of_new_residuals
         return
 
@@ -680,7 +692,7 @@ class SlottedGraphEnvPower:
         #          - interference_weight * interference_on_others - capacity_reduction_weight * capacity_reduction    
         
         #--- for raz old ver comparision
-        delay = self.routing_metrics['delay']['end_to_end_delay_per_flow'][self.allocated[-1][0]] # may not be same as raz old ver
+        delay = None # self.routing_metrics['delay']['end_to_end_delay_per_flow'][self.allocated[-1][0]] # may not be same as raz old ver
         #need to build with residual delay
         #rate_reward = self.routing_metrics['rate']['rate_per_flow'][self.allocated[-1][0]] /  self.flows[self.allocated[-1][0]]['packets']
         rate_reward = 0
@@ -700,19 +712,16 @@ class SlottedGraphEnvPower:
 
         return reward
 
-    def end_of_step_update(self,state):
+    def end_of_slot_update(self,state):
         '''
         this function reset the part in state that is needed to be resets (demands) betwwen each time slot
         and output data for our likings betwwens time slots
         '''
+        # gather rate and delay data
         data = self.get_rates_data()
 
+        # reset demands for the next time slot
         self.allocated = []
-        # from time slot to time slot, we need to reset the demand observation
-        allocated = [False] * len(self.flows)
-        for i, a in enumerate(self.allocated):
-            allocated[a[0]] = True
-
         allocated = [a[0] for a in self.allocated]
         free_actions = list(set(range(len(self.flows))) - set(allocated)) # unassinged flows, EMPTY free_actions means we are in the last flow in the slot
         free_paths = []
@@ -730,6 +739,7 @@ class SlottedGraphEnvPower:
         else: # if we are in the last time step of the time slot, return initialzed demand
             normalized_demand = None
 
+        #copy rest of the state, and update the demand
         new_state = state[0], state[1], free_paths, free_paths_idx, normalized_demand
 
         return new_state,data

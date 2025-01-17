@@ -140,18 +140,15 @@ class SlottedGRRL:
         reward = 0
         Tot_num_of_timeslots = env.Tot_num_of_timeslots
 
-        manual_actions = [[0,1],[1,2]]
-
         for ii in range(Tot_num_of_timeslots): # as long there is still flows running (determines the num of time_slotes in one episode)
-            
             for step in range(env.num_flows):
-                # TODO allocate residual flows to graph each flow in the MDP all over again
                 a = self._select_action(state, env.possible_actions[step])
-                # action = manual_actions[step] #action = [step, a]
+                # action = manual_actions[step]
                 action = [step, a] 
                 actions.append(action)
                 paths.append(env.possible_actions[action[0]][action[1]])
                 state, r = env.step(action)
                 reward += r
-            state,data = env.end_of_step_update(state)
+            state,data = env.end_of_slot_update(state)
+        
         return actions, paths, reward

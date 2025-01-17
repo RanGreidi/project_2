@@ -326,11 +326,16 @@ def plot_graph(graph,graph_pos, labels,residual_label, total_time_slots):
     # plot
     plt.figure()
     nx.draw_networkx(graph, graph_pos, with_labels=True, node_color="tab:blue")
-    nx.draw_networkx_edge_labels(graph, graph_pos, edge_labels=labels, font_color='red',font_size=3,verticalalignment='bottom')
+    nx.draw_networkx_edge_labels(graph, graph_pos, edge_labels=labels, font_color='red',font_size=2.5, label_pos=0.3)
     #draw residual
-    nx.draw_networkx_edge_labels(graph, graph_pos, edge_labels=residual_label, font_color='blue',font_size=3, verticalalignment='top')
+    nx.draw_networkx_edge_labels(graph, graph_pos, edge_labels=residual_label, font_color='blue',font_size=2.5, label_pos=0.7)
     comment = f"Time step [SEC]: {total_time_slots}"
     plt.text(0.5, -0.1, comment, ha='center', va='center', transform=plt.gca().transAxes,fontsize=7)
     plt.savefig('graph.png',dpi=300)
     plt.close()
     return
+
+def extract_first_letters(s):
+    words = s.split('_')
+    first_letters = ''.join(word[0] for word in words if word)
+    return first_letters

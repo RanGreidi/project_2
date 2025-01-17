@@ -70,16 +70,16 @@ if __name__ == "__main__":
          (0.2, 0), (0.2, 0.01), (0.2, 0.02)]
 
     # BW matrix
-    C = 1 * np.ones((N, N))
+    C = 100 * np.ones((N, N))
     #------------------------------------------------------------------------
 
 
     # number of paths to choose from
-    action_size = 4                         #search space limitaions?
+    action_size = 8                         #search space limitaions?
 
     # flow demands
     F = [
-        {"source": 0, "destination": 8, "packets": 55, "time_constrain": 10 , 'flow_idx': 0 }, #Packets [MegaBytes]
+        {"source": 0, "destination": 8, "packets": 1, "time_constrain": 10 , 'flow_idx': 0 }, #Packets [MegaBytes]
         {"source": 0, "destination": 8, "packets": 1000, "time_constrain": 10, 'flow_idx': 1}#, #Packets [MegaBytes]
         # {"source": 0, "destination": 8, "packets": 1, "time_constrain": 10, 'flow_idx': 2}, #Packets [MegaBytes]
         # {"source": 0, "destination": 8, "packets": 1000, "time_constrain": 10, 'flow_idx': 3}
@@ -93,11 +93,11 @@ if __name__ == "__main__":
                                         reward_weights=reward_weights,
                                         telescopic_reward = True,
                                         direction = 'minimize',
-                                        slot_duration=60,          # [in SEC]
+                                        slot_duration=5,          # [in SEC]
                                         Tot_num_of_timeslots = 60, # [in Minutes]
                                         render_mode = True,
                                         trx_power_mode='gain',
-                                        channel_gain = 100)
+                                        channel_gain = 1)
 
     slotted_diamond = SlottedDIAMOND(grrl_model_path=MODEL_PATH)
     
