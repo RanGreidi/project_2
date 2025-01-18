@@ -321,10 +321,15 @@ def gen_grid_graph(n, special_edges_add=None, special_edges_remove=None):
 def shortest_path(G, s, d):
     return nx.shortest_path(G, source=s, target=d, weight='weight', method='dijkstra')
 
-def plot_graph(graph,graph_pos, labels,residual_label, total_time_slots):
-    labels_matrix = np.array(())
+def plot_graph(graph,graph_pos, labels,residual_label, total_time_slots,table_data):
+    column_labels = ["Flow", "Rate"]
+
     # plot
     plt.figure()
+    table = plt.table(cellText=table_data, colLabels=column_labels, loc='bottom', cellLoc='center', bbox=[0, 0, 0.2, 0.1])
+    # Set the font size for each cell in the table
+    for key, cell in table.get_celld().items():
+        cell.set_fontsize(5)  # Adjust the font size as needed    
     nx.draw_networkx(graph, graph_pos, with_labels=True, node_color="tab:blue")
     nx.draw_networkx_edge_labels(graph, graph_pos, edge_labels=labels, font_color='red',font_size=2.5, label_pos=0.3)
     #draw residual
