@@ -222,13 +222,13 @@ class GraphEnvPower:
     def _init_transmission_power(self):
         L = self.num_edges // 2
         power_mode = self.kwargs.get('trx_power_mode', 'equal')
-        assert power_mode in ('equal', 'rayleigh', 'rayleigh_gain', 'steps'), f'Invalid power mode. got {power_mode}'
+        assert power_mode in ('equal', 'rayleigh', 'rayleigh_gain', 'steps','gain'), f'Invalid power mode. got {power_mode}'
         channel_coeff = np.ones(L)
         channel_gain = np.ones(L)
         if 'rayleigh' in power_mode:
             channel_coeff = np.random.rayleigh(scale=self.kwargs.get('rayleigh_scale', 1), size=L)
         if 'gain' in power_mode:
-            channel_gain = self.kwargs.get('channel_gain', np.random.uniform(low=0.5, high=1, size=L)) * np.ones(L)
+            channel_gain = self.kwargs.get('channel_gain', np.random.uniform(low=0.1, high=10, size=L)) * np.ones(L)
         p_max = self.kwargs.get('max_trx_power', 1) * np.ones(L)
         trx_power = channel_gain * np.minimum(p_max, 1 / channel_coeff)  # P_l
         if power_mode == 'steps':

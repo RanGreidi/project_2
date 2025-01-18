@@ -156,8 +156,9 @@ class SlottedGRRL:
                 paths[step].append(env.possible_actions[action[0]][action[1]])
                 state, r = env.step(action)
                 reward += r
-            env.end_of_step_update()
-            self.update_flows(env=env, timeslot=timeslot, arrival_matrix=arrival_matrix)
+
+            state, data = env.end_of_slot_update(state=state)
+            # self.update_flows(env=env, timeslot=timeslot, arrival_matrix=arrival_matrix)
             # Todo: needs to update state for next GNN decision
 
         return actions, paths, reward

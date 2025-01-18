@@ -26,11 +26,11 @@ if __name__ == "__main__":
     reward_weights = dict(rate_weight=0.5, delay_weight=0, interference_weight=0, capacity_reduction_weight=0)
     # ------------------------------------------------------------------------
 
-    # # number of nodes
+    #  number of nodes
     N = 4
 
-    # # Adjacency matrix
-    # # create 3x3 mesh graph
+    #  Adjacency matrix
+    #  create 3x3 mesh graph
     # A = np.array([[0, 1, 1, 1],  #means how connects to who
     #               [1, 0, 1, 1],
     #               [1, 1, 0, 1],
@@ -43,7 +43,7 @@ if __name__ == "__main__":
     # P = [(0, 0), (0, 1),                 #the position of each node
     #      (1, 0), (1, 1)]
 
-    # # BW matrix [MHz]
+    #  BW matrix [MHz]
     # C = 1 * np.ones((N, N))
     # C = 1 * np.array([[1, 1, 1, 1],  #means how connects to who
     #                     [1, 1, 1, 1],
@@ -51,72 +51,76 @@ if __name__ == "__main__":
     #                     [1, 1, 1, 1]])
     # ------------------------------------------------------------------------
 
-    # N = 9
+    N = 9
 
     # Adjacency matrix
     # create 3x3 mesh graph
-    # A = np.array([[0, 1, 0, 1, 0, 0, 0, 0, 0],
-    #               [1, 0, 1, 0, 1, 0, 0, 0, 0],
-    #               [0, 1, 0, 0, 0, 1, 0, 0, 0],
-    #               [1, 0, 0, 0, 1, 0, 1, 0, 0],
-    #               [0, 1, 0, 1, 0, 1, 0, 1, 0],
-    #               [0, 0, 1, 0, 1, 0, 0, 0, 1],
-    #               [0, 0, 0, 1, 0, 0, 0, 1, 0],
-    #               [0, 0, 0, 0, 1, 0, 1, 0, 1],
-    #               [0, 0, 0, 0, 0, 1, 0, 1, 0]])
+    A = np.array([[0, 1, 0, 1, 0, 0, 0, 0, 0],
+                  [1, 0, 1, 0, 1, 0, 0, 0, 0],
+                  [0, 1, 0, 0, 0, 1, 0, 0, 0],
+                  [1, 0, 0, 0, 1, 0, 1, 0, 0],
+                  [0, 1, 0, 1, 0, 1, 0, 1, 0],
+                  [0, 0, 1, 0, 1, 0, 0, 0, 1],
+                  [0, 0, 0, 1, 0, 0, 0, 1, 0],
+                  [0, 0, 0, 0, 1, 0, 1, 0, 1],
+                  [0, 0, 0, 0, 0, 1, 0, 1, 0]])
 
-    # P = [(0, 0), (0, 100.1), (0, 200.2),
-    #      (100.1, 0), (100.1, 100.1), (100.1, 200.2),
-    #      (200.2, 0), (200.2, 100.1), (200.2, 200.2)]
+    P = [(0.0, 0), (0.0, 0.01), (0.0, 0.02),
+         (0.1, 0), (0.1, 0.01), (0.1, 0.02),
+         (0.2, 0), (0.2, 0.01), (0.2, 0.02)]
 
     # capacity matrix
-    # C = 1 * np.ones((N, N))
+    C = 100 * np.ones((N, N))
     # ------------------------------------------------------------------------
 
     # number of paths to choose from
-    # action_size = 4  # search space limitaions?
+    action_size = 8  # search space limitaions?
 
     # flow demands
-    # F = [
-    #     {"source": 0, "destination": 3, "packets": 100, "time_constrain": 10, 'flow_idx': 0},  # Packets [MegaBytes]
-    #     {"source": 1, "destination": 2, "packets": 100, "time_constrain": 10, 'flow_idx': 1}
-    # ]
+    F = [
+        {"source": 0, "destination": 8, "packets": 1, "time_constrain": 10, 'flow_idx': 0},  # Packets [MegaBytes]
+        {"source": 0, "destination": 8, "packets": 1000, "time_constrain": 10, 'flow_idx': 1}
+    ]
     #
-    # slotted_env = SlottedGraphEnvPower(adjacency_matrix=A,
-    #                                    bandwidth_matrix=C,
-    #                                    flows=F,
-    #                                    node_positions=P,
-    #                                    k=action_size,
-    #                                    reward_weights=reward_weights,
-    #                                    telescopic_reward=True,
-    #                                    direction='minimize',
-    #                                    slot_duration=30,  # [in SEC]
-    #                                    Tot_num_of_timeslots=4,  # [in Minutes]
-    #                                    render_mode=True)
+    slotted_env = SlottedGraphEnvPower(adjacency_matrix=A,
+                                       bandwidth_matrix=C,
+                                       flows=F,
+                                       node_positions=P,
+                                       k=action_size,
+                                       reward_weights=reward_weights,
+                                       telescopic_reward=True,
+                                       direction='minimize',
+                                       slot_duration=5,  # [in SEC]
+                                       Tot_num_of_timeslots=60,  # [in Minutes]
+                                       render_mode=True,
+                                       trx_power_mode='gain',
+                                       channel_gain=1)
 
-    # Try and use "generate_env"
+    # -------------------- Try and use "generate_env" for general topology ------------------------ #
 
-    env, slotted_env = generate_env(num_nodes=10,
-                                    num_edges=10,
-
-                                    num_flows=2,
-                                    min_flow_demand=100,
-                                    max_flow_demand=200,
-
-                                    num_actions=4,
-
-                                    min_capacity=10,
-                                    max_capacity=10,
-
-                                    direction="minimize",
-                                    reward_balance=0.8,
-                                    seed=37,
-                                    graph_mode='random',
-                                    reward_weights=reward_weights,
-                                    telescopic_reward=True,
-                                    slot_duration=30,
-                                    Tot_num_of_timeslots=4,
-                                    render_mode=True)
+    # env, slotted_env = generate_env(num_nodes=9,
+    #                                 num_edges=10,
+    #
+    #                                 num_flows=2,
+    #                                 min_flow_demand=100,
+    #                                 max_flow_demand=200,
+    #
+    #                                 num_actions=4,
+    #
+    #                                 min_capacity=10,
+    #                                 max_capacity=10,
+    #
+    #                                 direction="minimize",
+    #                                 reward_balance=0.8,
+    #                                 seed=37,
+    #                                 graph_mode='random',
+    #                                 reward_weights=reward_weights,
+    #                                 telescopic_reward=True,
+    #                                 slot_duration=60,
+    #                                 Tot_num_of_timeslots=60,
+    #                                 render_mode=True,
+    #                                 trx_power_mode = 'gain',
+    #                                 channel_gain = 100)
 
     run_env = copy.deepcopy(slotted_env)
 

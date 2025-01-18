@@ -86,7 +86,7 @@ def generate_env(num_nodes=10,
         num_nodes = 36
 
     # 2. create random flows
-    delta = 10
+    delta = 1
     packets = list(range(min_flow_demand, max_flow_demand + delta, delta))
 
     flows = _get_random_flows(num_nodes=num_nodes, num_flows=num_flows, demands=packets, seed=seed)
