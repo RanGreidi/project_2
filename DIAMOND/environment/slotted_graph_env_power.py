@@ -727,7 +727,7 @@ class SlottedGraphEnvPower:
         and output data for our likings betwwens time slots
         '''
         # gather rate and delay data
-        data = self.get_rates_data()
+        all_data , Avg_Rate_over_flows ,_ = self.get_rates_data()
 
         # reset demands for the next time slot
         self.allocated = []
@@ -751,7 +751,7 @@ class SlottedGraphEnvPower:
         #copy rest of the state, and update the demand
         new_state = state[0], state[1], free_paths, free_paths_idx, normalized_demand
 
-        return new_state,data
+        return new_state, Avg_Rate_over_flows
 
     def get_delay_data(self):
         data = self.routing_metrics.get('delay')
@@ -762,9 +762,10 @@ class SlottedGraphEnvPower:
         return data
 
     def get_rates_data(self):
-        data = self.routing_metrics.get('rate')
-        data['avg_flow_rate'] = np.mean(data.get('rate_per_flow'))
-        return data
+        data = self.routing_metrics['rate']['rate_per_flow']
+        Avg_Rate_over_flows = np.mean(data, axis=0)
+        Avg_Rate_over_time = np.mean(data, axis=1)
+        return data,Avg_Rate_over_flows,Avg_Rate_over_time
 
     def edge_list_to_adj_mat(self, lst):
         mat = np.zeros((self.num_nodes, self.num_nodes))

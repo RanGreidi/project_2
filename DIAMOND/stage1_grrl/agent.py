@@ -149,6 +149,6 @@ class SlottedGRRL:
                 paths.append(env.possible_actions[action[0]][action[1]])
                 state, r = env.step(action)
                 reward += r
-            state,data = env.end_of_slot_update(state)
+            state,SlotRates_AvgOverFlows = env.end_of_slot_update(state)
         
         return actions, paths, reward
