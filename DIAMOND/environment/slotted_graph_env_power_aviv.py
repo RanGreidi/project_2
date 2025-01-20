@@ -59,6 +59,7 @@ class SlottedGraphEnvPower:
         self.num_nodes = None
         self.num_edges = None
         self.num_flows = len(self.flows)
+        self.original_num_flows = len(self.flows) # TODO: num_flows can change between timeslots, this one doesnt
 
         self.max_capacity = np.max(self.bandwidth_matrix)
         self.demands = np.array([f["packets"] for f in self.flows])
@@ -69,7 +70,8 @@ class SlottedGraphEnvPower:
         self.residual_allocated = []
         self.prev_reward = None
 
-        self.routing_metrics = dict(rate=dict(rate_per_flow=self.demands.copy().astype(np.float64)),
+        # rate is a matrix with rows as flows and columns as time step
+        self.routing_metrics = dict(rate=dict(rate_per_flow=np.full([self.num_flows,slot_duration],np.inf).astype(np.float64)),
                                     delay=dict(end_to_end_delay_per_flow=np.zeros(self.num_flows)))
 
         self.path_bank = dict()
@@ -117,29 +119,56 @@ class SlottedGraphEnvPower:
         self.gen_edge_data()
         self.init_edge_data()
 
-    def show_graph(self, active_links, total_time_slots, plot_rate, show_fig=True):
+    def show_graph(self, active_links, total_time_slots, plot_rate, total_time_stemp_in_single_slot, show_fig=True):
         """ draw global graph"""
         label_dict = {}
+        residual_dict = {}
         if plot_rate:
             # add flows to graph
             for a in active_links:
-                u, v = a['link']
-                if (u, v) in label_dict:
-                    label_dict[(u, v)] += (
-                        f"\n flow_idx: {a['flow_idx']} \n remaining packet: {round(a['packets'], 2)} \n Avg. Rate: {round(self.routing_metrics['rate']['rate_per_flow'][a['flow_idx']], 2)}")
+                if 'residual_name' not in a:
+                    u, v = a['link']
+                    if (u, v) in label_dict:
+                        flow_name = f"\n flow_idx: {a['flow_idx']}"
+                        label_dict[(u,v)] += (flow_name + f"\n remaining packet: {round(a['packets'],2)} \n Avg. Rate: {round(self.routing_metrics['rate']['rate_per_flow'][a['flow_idx']][total_time_stemp_in_single_slot], 2)}")
+                    else:
+                        flow_name = f"\n flow_idx: {a['flow_idx']}"
+                        label_dict.update({(u,v): flow_name + f"\n remaining packet: {round(a['packets'],2)} \n Avg. Rate: {round(self.routing_metrics['rate']['rate_per_flow'][a['flow_idx']][total_time_stemp_in_single_slot],2)}"})
                 else:
-                    label_dict.update({(u,
-                                        v): f"flow_idx: {a['flow_idx']} \n remaining packet: {round(a['packets'], 2)} \n Avg. Rate: {round(self.routing_metrics['rate']['rate_per_flow'][a['flow_idx']], 2)}"})
+                    u, v = a['link']
+                    if (u, v) in residual_dict:
+                        flow_name = f"\n res: {a['residual_name']}(flow{a['flow_idx']})"
+                        residual_dict[(u,v)] += (flow_name + f"\n remaining packet: {round(a['packets'],2)} \n Avg. Rate: {round(self.routing_metrics['rate']['rate_per_flow'][a['flow_idx']][total_time_stemp_in_single_slot], 2)}")
+                    else:
+                        flow_name = f"\n res: {a['residual_name']}(flow{a['flow_idx']})"
+                        residual_dict.update({(u, v): flow_name + f"\n remaining packet: {round(a['packets'], 2)} \n Avg. Rate: {round(self.routing_metrics['rate']['rate_per_flow'][a['flow_idx']][total_time_stemp_in_single_slot], 2)}"})
+
+            # add rates table to graph
+            flow_rates = self.routing_metrics['rate']['rate_per_flow'][:,total_time_stemp_in_single_slot].tolist()
+            table_data = [[f"Flow {i}", f"{rate:.3f}"] for i, rate in enumerate(flow_rates)]
         else:
             # add flows to graph
             for a in active_links:
-                u, v = a['link']
-                if (u, v) in label_dict:
-                    label_dict[(u, v)] += (
-                        f"\n flow_idx: {a['flow_idx']} \n remaining packet: {round(a['packets'], 2)}")
+                if 'residual_name' not in a:
+                    u, v = a['link']
+                    if (u, v) in label_dict:
+                        flow_name = f"\n flow_idx: {a['flow_idx']}"
+                        label_dict[(u, v)] += flow_name + f"\n remaining packet: {round(a['packets'], 2)}"
+                    else:
+                        flow_name = f"\n flow_idx: {a['flow_idx']}"
+                        label_dict.update({(u, v): flow_name + f"\n remaining packet: {round(a['packets'], 2)}"})
                 else:
-                    label_dict.update(
-                        {(u, v): f"flow_idx: {a['flow_idx']} \n remaining packet: {round(a['packets'], 2)}"})
+                    u, v = a['link']
+                    if (u, v) in residual_dict:
+                        flow_name = f"\n res: {a['residual_name']}(flow{a['flow_idx']})"
+                        residual_dict[(u, v)] += flow_name + f"\n remaining packet: {round(a['packets'], 2)}"
+                    else:
+                        flow_name = f"\n res: {a['residual_name']}(flow{a['flow_idx']})"
+                        residual_dict.update({(u, v): flow_name + f"\n remaining packet: {round(a['packets'], 2)}"})
+
+            # add rates table to graph
+            flow_rates = self.routing_metrics['rate']['rate_per_flow'][:, total_time_stemp_in_single_slot].tolist()
+            table_data = [[f"Flow {i}", '--'] for i, rate in enumerate(flow_rates)]
 
         # add capacity matrix to graph
         current_link_capacity_mat = self.edge_list_to_adj_mat(self.current_link_capacity)
@@ -149,15 +178,15 @@ class SlottedGraphEnvPower:
                     if (u, v) in label_dict:
                         label_dict[(u, v)] += (f"\n Capacity: {round(current_link_capacity_mat[u, v], 2)}")
 
-        # add bandwidth matrix to graph
-        bandwidth = self.edge_list_to_adj_mat(self.bandwidth_edge_list)
-        for u in range(self.num_nodes):
-            for v in range(self.num_nodes):
-                if u != v:
-                    if (u, v) in label_dict:
-                        label_dict[(u, v)] += (f"\n Total channel Bandwidth: {bandwidth[u, v]}")
+        # #add bandwidth matrix to graph
+        # bandwidth = self.edge_list_to_adj_mat(self.bandwidth_edge_list)
+        # for u in range(self.num_nodes):
+        #     for v in range(self.num_nodes):
+        #         if u != v:
+        #             if (u,v) in label_dict:
+        #                 label_dict[(u,v)] += (f"\n Total channel Bandwidth: {bandwidth[u,v]}")
 
-        plot_graph(self.graph, self.graph_pos, label_dict, total_time_slots)
+        plot_graph(self.graph, self.graph_pos, label_dict,residual_dict, total_time_slots,table_data)
 
     def gen_edge_data(self):
         self.eids = dict()
@@ -245,13 +274,13 @@ class SlottedGraphEnvPower:
         """
         L = self.num_edges // 2
         power_mode = self.kwargs.get('trx_power_mode', 'equal')
-        assert power_mode in ('equal', 'rayleigh', 'rayleigh_gain', 'steps'), f'Invalid power mode. got {power_mode}'
+        assert power_mode in ('equal', 'rayleigh', 'rayleigh_gain', 'steps', 'gain'), f'Invalid power mode. got {power_mode}'
         channel_coeff = np.ones(L)
         channel_gain = np.ones(L)
         if 'rayleigh' in power_mode:
             channel_coeff = np.random.rayleigh(scale=self.kwargs.get('rayleigh_scale', 1), size=L)
         if 'gain' in power_mode:
-            channel_gain = self.kwargs.get('channel_gain', np.random.uniform(low=0.5, high=1, size=L)) * np.ones(L)
+            channel_gain = self.kwargs.get('channel_gain', np.random.uniform(low=0.1, high=10, size=L)) * np.ones(L)
         p_max = self.kwargs.get('max_trx_power', 1) * np.ones(L)
         trx_power = channel_gain * np.minimum(p_max, 1 / channel_coeff)  # P_l
         if power_mode == 'steps':
@@ -320,11 +349,13 @@ class SlottedGraphEnvPower:
         trx_power = self.trx_power[self.eids[s, d]]  # P_l
         self.current_link_interference += self.interference_map[self.eids[s, d]]  # I_l
         sinr = trx_power / (self.current_link_interference + 1)  # SINR_l
-        self.current_link_capacity = np.maximum(1, self.bandwidth_edge_list * np.log2(
-            1 + sinr))  # np.minimum(self.bandwidth_edge_list, np.maximum(1, np.floor(self.bandwidth_edge_list * np.log2(1 + sinr))))
+        # self.current_link_capacity = np.maximum(1, self.bandwidth_edge_list * np.log2(1 + sinr)) # np.minimum(self.bandwidth_edge_list, np.maximum(1, np.floor(self.bandwidth_edge_list * np.log2(1 + sinr))))
+        self.current_link_capacity = self.bandwidth_edge_list * np.log2(1 + sinr)  # np.minimum(self.bandwidth_edge_list, np.maximum(1, np.floor(self.bandwidth_edge_list * np.log2(1 + sinr))))
 
     def _transmit_singe_timestep(self, active_links, total_time_slots):
         """ send packet over all links in active_links for a single time-step """
+
+        ## produce action dict ###
         next_flows_list = []
         action_dict = {}
         for l1 in range(len(active_links)):
@@ -348,6 +379,7 @@ class SlottedGraphEnvPower:
                         shared_resource['flows_idxs'].append((active_links[l2]['flow_idx'], None))
             if str(shared_resource['link']) not in action_dict.keys():
                 action_dict[str(shared_resource['link'])] = shared_resource
+        ## end produce action dict ###
 
         # 1. update interference on the link
         for a in action_dict.values():
@@ -380,6 +412,7 @@ class SlottedGraphEnvPower:
                 flow_idx = a['flows_idxs'][idx][0]
                 residual_name = a['flows_idxs'][idx][1]  # name or None
 
+                True == True
                 if not residual_name:
                     flow = self.flows[flow_idx]
 
@@ -418,21 +451,23 @@ class SlottedGraphEnvPower:
                                                           packets=pkt,
                                                           residual_name=residual_name))
 
-                        if len(self.allocated) == len(self.flows):
-                            # update self.residual_flows - advance the current flow rout by one
-                            sub_flow = dict(source=flow['path'][v_pos],
-                                            destination=self.flows[flow_idx]['path'][-1],
-                                            packets=pkt,
-                                            time_constrain=10,
-                                            flow_idx=flow_idx,
-                                            path=flow['path'][1:],
-                                            residual_name=residual_name)
-                            next_flows_list.append(sub_flow)
+                        # if len(self.allocated) == len(self.flows):
+                        #     # update self.residual_flows - advance the current flow rout by one
+                        #     sub_flow = dict(source=flow['path'][v_pos],
+                        #                     destination=self.flows[flow_idx]['path'][-1],
+                        #                     packets=pkt,
+                        #                     time_constrain=10,
+                        #                     flow_idx=flow_idx,
+                        #                     path=flow['path'][1:],
+                        #                     residual_name=residual_name)
+                        #     next_flows_list.append(sub_flow)
 
             # flows staying in the current hop for the next time stamp
             for idx, pkt in enumerate(remaining_packets):
                 flow_idx = a['flows_idxs'][idx][0]
                 residual_name = a['flows_idxs'][idx][1]  # name or None
+
+                True == True
                 if not residual_name:
                     if pkt > 0:
                         exist_flow = list(filter(
@@ -460,35 +495,33 @@ class SlottedGraphEnvPower:
                                                           packets=pkt,
                                                           residual_name=residual_name))
 
-                        if len(self.allocated) == len(self.flows):
-                            # update self.residual_flows - create a new flow with the existing pkt and same rout
-                            sub_flow = dict(source=flow['path'][0],
-                                            destination=flow['path'][-1],
-                                            packets=pkt,
-                                            time_constrain=10,
-                                            flow_idx=flow_idx,
-                                            path=flow['path'],
-                                            residual_name=residual_name + '_' + str(sum(
-                                                1 for my_dict in self.residual_flows if
-                                                my_dict.get('residual_name') == residual_name)))  # generate_name())
-                            next_flows_list.append(sub_flow)
+                        # if len(self.allocated) == len(self.flows):
+                        #     # update self.residual_flows - create a new flow with the existing pkt and same rout
+                        #     sub_flow = dict(source=flow['path'][0],
+                        #                     destination=flow['path'][-1],
+                        #                     packets=pkt,
+                        #                     time_constrain=10,
+                        #                     flow_idx=flow_idx,
+                        #                     path=flow['path'],
+                        #                     residual_name=residual_name+'_'+str(sum(1 for my_dict in self.residual_flows if my_dict.get('residual_name') == residual_name)))#generate_name())
+                        #     next_flows_list.append(sub_flow)
 
         plot_rate = 0  # only when all flows are allocated plot rate on graph
         if len(self.allocated) == len(self.flows):
             plot_rate = 1
-            if total_time_slots == 0:
+            if total_time_slots == self.slot_duration - 1:  # last time step in time slot
                 self.residual_flows = next_flows_list
 
-                # update rate metric
-                for a in active_links:
-                    flow_idx = a['flow_idx']
-                    # if not flow_idx[1]: #TODO is this currect?
-                    link_capacity = self.current_link_capacity[self.eids[a['link']]]
-                    how_many_share_this_link_with_flow_idx = \
-                    Counter(link['link'] for link in active_links if 'link' in link)[a['link']]
-                    availible_resource = link_capacity / how_many_share_this_link_with_flow_idx
-                    if self.routing_metrics['rate']['rate_per_flow'][flow_idx] > availible_resource:
-                        self.routing_metrics['rate']['rate_per_flow'][flow_idx] = availible_resource
+            # update rate metric - find bottleneck rate for each flow
+            for a in active_links:
+                flow_idx = a['flow_idx']
+                # if not flow_idx[1]: #TODO is this currect?
+                link_capacity = self.current_link_capacity[self.eids[a['link']]]
+                how_many_share_this_link_with_flow_idx = \
+                Counter(link['link'] for link in active_links if 'link' in link)[a['link']]
+                availible_resource = link_capacity / how_many_share_this_link_with_flow_idx
+                if self.routing_metrics['rate']['rate_per_flow'][flow_idx][self.total_time_stemp_in_single_slot] > availible_resource:
+                    self.routing_metrics['rate']['rate_per_flow'][flow_idx][self.total_time_stemp_in_single_slot] = availible_resource
 
         # update list for all links interefences in order to avarge later
         self.current_link_interference_list_4EachTimeStep.append(self.current_link_interference)
@@ -502,8 +535,7 @@ class SlottedGraphEnvPower:
 
         # 3. plot & reset & save interferences for next global step
         if self.render_mode:
-            # self.show_graph(next_active_links, total_time_slots, plot_rate)
-            self.show_graph(active_links, total_time_slots, plot_rate)
+            self.show_graph(active_links, total_time_slots, plot_rate,self.total_time_stemp_in_single_slot)
         if next_active_links:
             # self.cumulative_link_interference += self.current_link_interference
             if np.mean(self.current_link_interference) > np.mean(self.cumulative_link_interference):
@@ -519,7 +551,8 @@ class SlottedGraphEnvPower:
         @output:
         """
 
-        # active links first generation
+        ###### ---active links first generation--- ######
+        # This part converts the entring flows into the first active_link list in the time slot #
         if self.flows:
             self.allocated.append(action)
             if not eval_path:
@@ -552,18 +585,18 @@ class SlottedGraphEnvPower:
             residual_active_links = []
 
         active_links += residual_active_links
+        ##########################  end of active links first generation  ##################################
 
-        total_time_stemp_in_single_slot = 0
+        self.total_time_stemp_in_single_slot = 0
         metadata = []
-        while active_links:
+        while True:
             # transmit single hop for all flows
-            if total_time_stemp_in_single_slot < self.slot_duration:
-                active_links, hop_metadata = self._transmit_singe_timestep(active_links,
-                                                                           total_time_stemp_in_single_slot)
+            if self.total_time_stemp_in_single_slot < self.slot_duration:
+                active_links, hop_metadata = self._transmit_singe_timestep(active_links, self.total_time_stemp_in_single_slot)
                 metadata.append(hop_metadata)
-                total_time_stemp_in_single_slot += 1
+                self.total_time_stemp_in_single_slot += 1
             else:
-                if len(self.allocated) == len(self.flows):  # if finish all flow at a time slot than
+                if len(self.allocated) == len(self.flows):  # if finish all flow at a time slot
                     self.update_flows(active_links, action)
                     self.slot_num += 1
                 break
@@ -580,10 +613,11 @@ class SlottedGraphEnvPower:
         # calc reward
         reward = self.calc_reward(metadata)
 
-        # routing metrics are re-calculated with each new flow allocation
-        if len(self.allocated) < self.num_flows:
-            self.routing_metrics = dict(rate=dict(rate_per_flow=self.demands.copy().astype(np.float64)),
-                                        delay=dict(end_to_end_delay_per_flow=np.zeros(self.num_flows)))
+        # # routing metrics are re-calculated with each new flow allocation
+        # if len(self.allocated) < self.num_flows:
+        #     self.routing_metrics = dict(rate=dict(rate_per_flow=self.demands.copy().astype(np.float64)),
+        #                                 delay=dict(end_to_end_delay_per_flow=np.zeros(self.num_flows)))
+
         return reward
 
     def update_flows(self, active_links, action):
@@ -599,6 +633,7 @@ class SlottedGraphEnvPower:
         sorted_active_links = sorted(active_links, key=lambda x: x.get('flow_idx', 0))
         list_of_new_residuals = []
         list_of_2flows = []
+        ii = 0
         for a in self.flows:
             flow_idx = a['flow_idx']
             # next we looks only at links that is not residual and belong to flow a (there can be only 2)
@@ -612,18 +647,19 @@ class SlottedGraphEnvPower:
                                destination=a['destination'],
                                packets=_2flows['packets'],
                                time_constrain=10,
-                               flow_idx=flow_idx,
+                               flow_idx=ii,
                                path=a['path'])
+                ii += 1
                 list_of_2flows.append(_2flows)
-            else:  # flows finishes, append 0 packets
-                _2flows = dict(source=a['source'],
-                               destination=a['destination'],
-                               packets=0,
-                               time_constrain=10,
-                               flow_idx=flow_idx,
-                               path=a['path'])
-                list_of_2flows.append(_2flows)
-            # self.flows = list_of_2flows
+            # else: #flows finishes, append 0 packets
+            #     _2flows = dict(source=a['source'],
+            #                 destination=a['destination'],
+            #                 packets=0,
+            #                 time_constrain=10,
+            #                 flow_idx=flow_idx,
+            #                 path=a['path'])
+            #     list_of_2flows.append(_2flows)
+
             for res in _2res:
                 if res and res['packets'] > 0:
                     res = dict(source=res['link'][0],
@@ -636,12 +672,22 @@ class SlottedGraphEnvPower:
                     # self.residual_flows.append(_2res)
                     list_of_new_residuals.append(res)
 
+        # delete finished flows from self.allocated:
+        in_flows = [fl['flow_idx'] for fl in list_of_2flows]
+        new_allocated = []
+        for flw in self.allocated:
+            if flw[0] in in_flows:
+                new_allocated.append(flw)
+        self.allocated = new_allocated
+
         # update old residuals or make new residuals:
         # if a residual flow finishes with the first node, than change him to be routed as [srs+1 -> dst]
         # if a residual flow didnot finish, update its packet quantity, and make a new residual flow for what have moved
         # to the next node till dst
+
         self.flows = list_of_2flows
-        self.residual_flows += list_of_new_residuals
+        self.num_flows = len(self.flows)
+        # self.residual_flows += list_of_new_residuals  # TODO : my adding if want to ignore residuals
         return
 
     def calc_reward(self, metadata):
@@ -666,8 +712,7 @@ class SlottedGraphEnvPower:
         #          - interference_weight * interference_on_others - capacity_reduction_weight * capacity_reduction
 
         # --- for raz old ver comparision
-        delay = self.routing_metrics['delay']['end_to_end_delay_per_flow'][
-            self.allocated[-1][0]]  # may not be same as raz old ver
+        delay = None  # self.routing_metrics['delay']['end_to_end_delay_per_flow'][self.allocated[-1][0]] # may not be same as raz old ver
         # need to build with residual delay
         # rate_reward = self.routing_metrics['rate']['rate_per_flow'][self.allocated[-1][0]] /  self.flows[self.allocated[-1][0]]['packets']
         rate_reward = 0
@@ -687,10 +732,40 @@ class SlottedGraphEnvPower:
 
         return reward
 
-    def end_of_step_update(self):
+    def end_of_slot_update(self, state):
+        '''
+        this function reset the part in state that is needed to be resets (demands) betwwen each time slot
+        and output data for our likings betwwens time slots
+        '''
+
+        # gather rate and delay data
+        all_data, Avg_Rate_over_flows = self.get_rates_data()
+
+        # reset demand for the next time slot
         self.allocated = []
-        data = self.get_rates_data()
-        return data
+
+        allocated = [a[0] for a in self.allocated]
+        free_actions = list(set(range(len(self.flows))) - set(
+            allocated))  # unassinged flows, EMPTY free_actions means we are in the last flow in the slot
+        free_paths = []
+        free_paths_idx = []
+        demand = []
+        for a in free_actions:
+            p = self.possible_actions[a]  # posible routs for unassigned flow a
+            free_paths_idx += [[a, k] for k in range(len(p))]
+            free_paths += p
+            demand += [self.flows[a]["packets"] for k in p]
+
+        # demand
+        if free_actions:  # if we are not in the last time step of the time slot, than we can calculate the demand
+            normalized_demand = np.array(demand).astype(np.float32) / self.max_demand
+        else:  # if we are in the last time step of the time slot, return initialzed demand
+            normalized_demand = None
+
+        # copy rest of the state, and update the demand
+        new_state = state[0], state[1], free_paths, free_paths_idx, normalized_demand
+
+        return new_state, Avg_Rate_over_flows
 
     def get_delay_data(self):
         data = self.routing_metrics.get('delay')
@@ -702,9 +777,28 @@ class SlottedGraphEnvPower:
         return data
 
     def get_rates_data(self):
-        data = self.routing_metrics.get('rate')
-        data['avg_flow_rate'] = np.mean(data.get('rate_per_flow'))
-        return data
+        data = self.routing_metrics['rate']['rate_per_flow']
+        # data[np.isinf(data)] = 0 # replace all inf to 0  (in case flow finished before slot ends)
+        Avg_Rate_over_flows = []
+
+        for second in range(self.slot_duration):
+            avg_rate_in_sedond = 0
+            divide_by = 0
+            for flow in range(data.shape[0]):
+                if data[flow, second] != np.inf:
+                    avg_rate_in_sedond += data[flow, second]
+                    divide_by += 1
+
+            avg_rate_in_sedond = avg_rate_in_sedond / divide_by
+            Avg_Rate_over_flows.append(avg_rate_in_sedond)
+
+        # Avg_Rate_over_flows = np.mean(data, axis=0)
+        # Avg_Rate_over_time = np.mean(data, axis=1)
+
+        # TODO: initialize metrics for next iteration
+        self.routing_metrics = dict(rate=dict(rate_per_flow=np.full([self.original_num_flows, self.slot_duration], np.inf).astype(np.float64)),
+                                    delay=dict(end_to_end_delay_per_flow=np.zeros(self.original_num_flows)))
+        return data, Avg_Rate_over_flows
 
     def edge_list_to_adj_mat(self, lst):
         mat = np.zeros((self.num_nodes, self.num_nodes))
@@ -756,12 +850,9 @@ class SlottedGraphEnvPower:
 
         edges = np.array(self.graph.edges)
 
-        allocated = [False] * len(self.flows)
-        for i, a in enumerate(self.allocated):
-            allocated[a[0]] = True
-
         allocated = [a[0] for a in self.allocated]
-        free_actions = list(set(range(len(self.flows))) - set(allocated))  # unassinged flows
+        free_actions = list(set(range(len(self.flows))) - set(
+            allocated))  # unassinged flows, EMPTY free_actions means we are in the last flow in the slot
         free_paths = []
         free_paths_idx = []
         demand = []
@@ -772,8 +863,10 @@ class SlottedGraphEnvPower:
             demand += [self.flows[a]["packets"] for k in p]
 
         # demand
-        # normalized_demand = np.array(demand).astype(np.float32) / self.max_demand
-        normalized_demand = np.array([10000, 10000, 10000, 10000]).astype(np.float32) / 10000
+        if free_actions:  # if we are not in the last time step of the time slot, than we can calculate the demand
+            normalized_demand = np.array(demand).astype(np.float32) / self.max_demand
+        else:  # if we are in the last time step of the time slot, return initialzed demand
+            normalized_demand = None
 
         # if self.tf_env:
         #     return self.__get_tf_state()
@@ -787,7 +880,7 @@ class SlottedGraphEnvPower:
         self.allocated = []
         # prev_residuals = self.residual_flows
         # self.residual_flows  = []
-        self.routing_metrics = dict(rate=dict(rate_per_flow=self.demands.copy()),
+        self.routing_metrics = dict(rate=dict(rate_per_flow=np.full([self.num_flows,self.slot_duration],np.inf).astype(np.float64)),
                                     delay=dict(end_to_end_delay_per_flow=np.zeros(self.num_flows)))
         observation = self.__get_observation()
 
@@ -807,7 +900,6 @@ class SlottedGraphEnvPower:
         next_state = self.__get_observation()
 
         return next_state, reward
-
 
 
 if __name__ == "__main__":
@@ -832,11 +924,11 @@ if __name__ == "__main__":
          (1, 0), (1, 1)]
 
     # capacity matrix
-    C = 100 * np.ones((N, N))
-    C = 100 * np.array([[1, 1, 1, 1],  # means how connects to who
-                        [1, 1, 1, 1],
-                        [1, 1, 1, 1],
-                        [1, 1, 1, 1]])
+    C = 1 * np.ones((N, N))
+    # C = 100 * np.array([[1, 1, 1, 1],  # means how connects to who
+    #                     [1, 1, 1, 1],
+    #                     [1, 1, 1, 1],
+    #                     [1, 1, 1, 1]])
 
     # interference matrix
     I = np.ones((N, N)) - np.eye(N)

@@ -2,6 +2,7 @@ import torch
 from torch.distributions import Categorical
 import sys
 import os
+import numpy as np
 
 sys.path.insert(0, os.path.join("DIAMOND", "stage1_grrl"))
 
@@ -143,25 +144,27 @@ class SlottedGRRL:
         state = env.reset()
         reward = 0
         Tot_num_of_timeslots = env.Tot_num_of_timeslots
+        Tot_rates = []
 
-        manual_actions = [[0, 0], [1, 3]]
+        manual_actions = [[0, 0], [1, 1]]
 
         for timeslot in range(Tot_num_of_timeslots):  # as long there is still flows running (determines the num of time_slotes in one episode)
 
             for step in range(env.num_flows):
                 a = self._select_action(state, env.possible_actions[step])
-                # action = manual_actions[step]  # action = [step, a]
-                action = [step, a]
+                action = manual_actions[step]  # action = [step, a]
+                # action = [step, a]
                 actions.append(action)
                 paths[step].append(env.possible_actions[action[0]][action[1]])
                 state, r = env.step(action)
                 reward += r
 
-            state, data = env.end_of_slot_update(state=state)
+            state,SlotRates_AvgOverFlows = env.end_of_slot_update(state)
+            Tot_rates += (SlotRates_AvgOverFlows)
             # self.update_flows(env=env, timeslot=timeslot, arrival_matrix=arrival_matrix)
             # Todo: needs to update state for next GNN decision
 
-        return actions, paths, reward
+        return actions, paths, reward, Tot_rates
 
     def update_flows(self, env, timeslot, arrival_matrix):
         if arrival_matrix is not None:

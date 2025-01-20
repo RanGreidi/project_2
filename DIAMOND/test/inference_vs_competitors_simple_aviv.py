@@ -1,6 +1,7 @@
 import numpy as np
 import random
 import os
+import matplotlib.pyplot as plt
 from datetime import datetime
 import shutil
 
@@ -13,6 +14,7 @@ from diamond_aviv import DIAMOND, SlottedDIAMOND
 from environment import generate_env
 from environment.data import generate_env
 # from competitors import OSPF, RandomBaseline, DQN_GNN, DIAR, IACR
+from environment.utils import plot_slotted_vs_not_slotted_graph
 
 SEED = 123
 random.seed(SEED)
@@ -45,42 +47,74 @@ if __name__ == "__main__":
 
     #  BW matrix [MHz]
     # C = 1 * np.ones((N, N))
-    # C = 1 * np.array([[1, 1, 1, 1],  #means how connects to who
+    # C = 1 * np.array([[1, 100, 1, 1],  #means how connects to who
+    #                     [100, 1, 1, 100],
     #                     [1, 1, 1, 1],
-    #                     [1, 1, 1, 1],
-    #                     [1, 1, 1, 1]])
+    #                     [1, 100, 1, 1]])
     # ------------------------------------------------------------------------
 
-    N = 9
+    # N = 9
+    #
+    # # Adjacency matrix
+    #
+    # A = np.array([[0, 1, 0, 1, 0, 0, 0, 0, 0],
+    #               [1, 0, 1, 0, 1, 0, 0, 0, 0],
+    #               [0, 1, 0, 0, 0, 1, 0, 0, 0],
+    #               [1, 0, 0, 0, 1, 0, 1, 0, 0],
+    #               [0, 1, 0, 1, 0, 1, 0, 1, 0],
+    #               [0, 0, 1, 0, 1, 0, 0, 0, 1],
+    #               [0, 0, 0, 1, 0, 0, 0, 1, 0],
+    #               [0, 0, 0, 0, 1, 0, 1, 0, 1],
+    #               [0, 0, 0, 0, 0, 1, 0, 1, 0]])
+    #
+    # P = [(0.0, 0), (0.0, 0.01), (0.0, 0.02),
+    #      (0.1, 0), (0.1, 0.01), (0.1, 0.02),
+    #      (0.2, 0), (0.2, 0.01), (0.2, 0.02)]
+    #
+    # # P = [(0, 0), (0, 1), (0, 2),
+    # # (1, 0), (1, 1), (1, 2),
+    # # (2, 0), (2, 1), (2, 2)]
+    # # BW matrix
+    # C = 1 * np.ones((N, N))
+    #
+    # # flow demands
+    # F = [
+    #     {"source": 0, "destination": 8, "packets": 20, "time_constrain": 10, 'flow_idx': 0},  # Packets [MegaBytes]
+    #     {"source": 0, "destination": 8, "packets": 10000, "time_constrain": 10, 'flow_idx': 1}
+    # ]
+    # ------------------------------------------------------------------------
+
+    # -------------------------- Aviv Topology ----------------------------------------------
+    N = 3
 
     # Adjacency matrix
-    # create 3x3 mesh graph
-    A = np.array([[0, 1, 0, 1, 0, 0, 0, 0, 0],
-                  [1, 0, 1, 0, 1, 0, 0, 0, 0],
-                  [0, 1, 0, 0, 0, 1, 0, 0, 0],
-                  [1, 0, 0, 0, 1, 0, 1, 0, 0],
-                  [0, 1, 0, 1, 0, 1, 0, 1, 0],
-                  [0, 0, 1, 0, 1, 0, 0, 0, 1],
-                  [0, 0, 0, 1, 0, 0, 0, 1, 0],
-                  [0, 0, 0, 0, 1, 0, 1, 0, 1],
-                  [0, 0, 0, 0, 0, 1, 0, 1, 0]])
 
-    P = [(0.0, 0), (0.0, 0.01), (0.0, 0.02),
-         (0.1, 0), (0.1, 0.01), (0.1, 0.02),
-         (0.2, 0), (0.2, 0.01), (0.2, 0.02)]
+    A = np.array([[0, 1, 1],
+                  [1, 0, 1],
+                  [1, 1, 0]])
 
-    # capacity matrix
-    C = 100 * np.ones((N, N))
-    # ------------------------------------------------------------------------
+    P = [(0.0, 0), (0.1, 0.0), (0.05, 0.01)]
 
-    # number of paths to choose from
-    action_size = 8  # search space limitaions?
+    # P = [(0, 0), (0, 1), (0, 2),
+    # (1, 0), (1, 1), (1, 2),
+    # (2, 0), (2, 1), (2, 2)]
+    # BW matrix
+    # C = 10 * np.ones((N, N))
+    C = 1 * np.array([[1, 100, 1],  #means how connects to who
+                      [100, 1, 5],
+                      [1, 5, 1]])
 
     # flow demands
     F = [
-        {"source": 0, "destination": 8, "packets": 1, "time_constrain": 10, 'flow_idx': 0},  # Packets [MegaBytes]
-        {"source": 0, "destination": 8, "packets": 1000, "time_constrain": 10, 'flow_idx': 1}
+        {"source": 0, "destination": 1, "packets": 10, "time_constrain": 10, 'flow_idx': 0},  # Packets [MegaBytes]
+        {"source": 0, "destination": 1, "packets": 100, "time_constrain": 10, 'flow_idx': 1}
     ]
+
+    # ------------------------------------------------------------------------
+
+    # number of paths to choose from
+    action_size = 4  # search space limitaions?
+
     #
     slotted_env = SlottedGraphEnvPower(adjacency_matrix=A,
                                        bandwidth_matrix=C,
@@ -92,6 +126,20 @@ if __name__ == "__main__":
                                        direction='minimize',
                                        slot_duration=5,  # [in SEC]
                                        Tot_num_of_timeslots=60,  # [in Minutes]
+                                       render_mode=True,
+                                       trx_power_mode='gain',
+                                       channel_gain=1)
+
+    slotted_env_raz = SlottedGraphEnvPower(adjacency_matrix=A,
+                                       bandwidth_matrix=C,
+                                       flows=F,
+                                       node_positions=P,
+                                       k=action_size,
+                                       reward_weights=reward_weights,
+                                       telescopic_reward=True,
+                                       direction='minimize',
+                                       slot_duration=5 * 60,  # [in SEC]
+                                       Tot_num_of_timeslots=1,  # [in Minutes]
                                        render_mode=True,
                                        trx_power_mode='gain',
                                        channel_gain=1)
@@ -128,9 +176,26 @@ if __name__ == "__main__":
 
     arrival_matrix = np.random.randint(100, 200, size=(4, len(slotted_env.flows)))
 
-    diamond_paths, slotted_grrl_rates_data, slotted_grrl_delay_data = slotted_diamond(slotted_env, grrl_data=True, use_nb3r=False, arrival_matrix=arrival_matrix)
+    diamond_paths, slotted_grrl_rates_data, slotted_grrl_delay_data, Tot_rates = slotted_diamond(slotted_env, grrl_data=True, use_nb3r=False, arrival_matrix=arrival_matrix)
 
-    _ = slotted_diamond.real_run(env=run_env, actions_recipe=diamond_paths)
+    # diamond_paths_raz, slotted_grrl_rates_data_raz, slotted_grrl_delay_data_raz, Tot_rates_raz = slotted_diamond(slotted_env_raz, grrl_data=True, use_nb3r=False, arrival_matrix=arrival_matrix)
+
+    # plot_slotted_vs_not_slotted_graph(mean_rate_over_all_timesteps, mean_rate_over_all_timesteps_raz)
+
+    # plot rates
+    time_axis = list(range(len(Tot_rates)))
+    plt.figure()
+    plt.plot(time_axis[4:], Tot_rates[4:], linestyle='-', color='b', label='Avg Rate [Avg over all flows]')
+    # Add labels and title
+    plt.xlabel('Time (seconds)')
+    plt.ylabel('Average Rate [Mbps]')
+    plt.title('Average Rates Over Time')
+    plt.legend()
+
+    # Show the plot
+    plt.savefig('average_rates_over_time.png')
+
+    print('finished')
 
 ''' 
 Guide for AVIV:
