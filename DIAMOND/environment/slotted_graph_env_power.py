@@ -30,6 +30,7 @@ class SlottedGraphEnvPower:
                  seed=42,
                  slot_duration = 60,          # [SEC]
                  Tot_num_of_timeslots = 60,   # [Minutes]
+                 simualte_residauls = True,
                  **kwargs):
         
         
@@ -97,6 +98,7 @@ class SlottedGraphEnvPower:
         self.active_links_after_time_slot = []
         
         self.render_mode = render_mode
+        self.simualte_residauls = simualte_residauls
         # initialization once
         self.__create_graph()
         self.__calc_possible_actions()
@@ -631,7 +633,10 @@ class SlottedGraphEnvPower:
             # next we looks only at links that is not residual and belong to flow a (there can be only 2)
             list_of_links_4flow_a = [d for d in sorted_active_links if d.get('flow_idx') == flow_idx and not d.get('residual_name')]
             _2flows = next((d for d in list_of_links_4flow_a if d.get('link')[0] == a['source']), {})
-            _2res = [d for d in list_of_links_4flow_a if d.get('link')[0] != a['source']]
+            if self.simualte_residauls:
+                _2res = [d for d in list_of_links_4flow_a if d.get('link')[0] != a['source']]
+            else:
+                _2res = []
             list_of_links_4flow_a.remove(_2flows) if _2flows else None
             if _2flows:
                 _2flows = dict(source=a['source'],
@@ -729,6 +734,10 @@ class SlottedGraphEnvPower:
         # gather rate and delay data
         all_data , Avg_Rate_over_flows = self.get_rates_data()
 
+        # reset routing metrics
+        self.routing_metrics = dict(rate=dict(rate_per_flow=np.full([self.num_flows,self.slot_duration],np.inf).astype(np.float64)),
+                                    delay=dict(end_to_end_delay_per_flow=np.zeros(self.num_flows)))
+
         # reset demands for the next time slot
         self.allocated = []
         allocated = [a[0] for a in self.allocated]
@@ -774,7 +783,10 @@ class SlottedGraphEnvPower:
                     avg_rate_in_sedond += data[flow,second]
                     divide_by += 1
 
-            avg_rate_in_sedond = avg_rate_in_sedond / divide_by
+            if divide_by == 0:
+                avg_rate_in_sedond = None
+            else:
+                avg_rate_in_sedond = avg_rate_in_sedond / divide_by
             Avg_Rate_over_flows.append(avg_rate_in_sedond)
 
         # Avg_Rate_over_flows = np.mean(data, axis=0)

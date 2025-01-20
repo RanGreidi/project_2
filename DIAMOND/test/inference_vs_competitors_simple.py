@@ -74,14 +74,14 @@ if __name__ == "__main__":
 
 
     # number of paths to choose from
-    action_size = 8                      #search space limitaions?
+    action_size = 10                      #search space limitaions?
 
     # flow demands
     F = [
-        {"source": 0, "destination": 8, "packets": 20, "time_constrain": 10 , 'flow_idx': 0 }, #Packets [MegaBytes]
-        {"source": 0, "destination": 8, "packets": 10000, "time_constrain": 10, 'flow_idx': 1}#, #Packets [MegaBytes]
-        # {"source": 0, "destination": 8, "packets": 1, "time_constrain": 10, 'flow_idx': 2}, #Packets [MegaBytes]
-        # {"source": 0, "destination": 8, "packets": 1000, "time_constrain": 10, 'flow_idx': 3}
+        {"source": 0, "destination": 8, "packets": 10, "time_constrain": 10 , 'flow_idx': 0 },
+        {"source": 0, "destination": 8, "packets": 10, "time_constrain": 10, 'flow_idx': 1}, #Packets [MegaBytes]
+        {"source": 0, "destination": 8, "packets": 10, "time_constrain": 10, 'flow_idx': 2}, #Packets [MegaBytes]
+        {"source": 0, "destination": 8, "packets": 10000, "time_constrain": 10, 'flow_idx': 3}
     ]
 
     slotted_env = SlottedGraphEnvPower( adjacency_matrix=A,
@@ -92,21 +92,39 @@ if __name__ == "__main__":
                                         reward_weights=reward_weights,
                                         telescopic_reward = True,
                                         direction = 'minimize',
-                                        slot_duration=5,          # [in SEC]
+                                        slot_duration=60,          # [in SEC]
                                         Tot_num_of_timeslots = 60, # [in Minutes]
-                                        render_mode = True,
+                                        render_mode = False,
                                         trx_power_mode='gain',
-                                        channel_gain = 1)
+                                        channel_gain = 1,
+                                        simualte_residauls = False)
+
+    UNslotted_env = SlottedGraphEnvPower( adjacency_matrix=A,
+                                        bandwidth_matrix=C,
+                                        flows=F,
+                                        node_positions=P,
+                                        k=action_size,
+                                        reward_weights=reward_weights,
+                                        telescopic_reward = True,
+                                        direction = 'minimize',
+                                        slot_duration=60*60,          # [in SEC]
+                                        Tot_num_of_timeslots = 1, # [in Minutes]
+                                        render_mode = False,
+                                        trx_power_mode='gain',
+                                        channel_gain = 1,
+                                        simualte_residauls = False)    
 
     slotted_diamond = SlottedDIAMOND(grrl_model_path=MODEL_PATH)
     
-    Tot_rates = slotted_diamond(slotted_env, grrl_data=False)
+    Tot_rates_sloted = slotted_diamond(slotted_env, grrl_data=False)
+    Tot_rates_UNslotted = slotted_diamond(UNslotted_env, grrl_data=False)
 
 
     # plot rates
-    time_axis = list(range(len(Tot_rates)))
+    time_axis = list(range(len(Tot_rates_sloted)))
     plt.figure()
-    plt.plot(time_axis[4:], Tot_rates[4:], linestyle='-', color='b', label='Avg Rate [Avg over all flows]')
+    plt.plot(time_axis[4:], Tot_rates_sloted[4:], linestyle='-', color='b', label='Slotted Avg Rate [Avg over all flows]')
+    plt.plot(time_axis[4:], Tot_rates_UNslotted[4:], linestyle='-', color='r', label='UnSlotted Avg Rate [Avg over all flows]')
     # Add labels and title
     plt.xlabel('Time (seconds)')
     plt.ylabel('Average Rate [Mbps]')
