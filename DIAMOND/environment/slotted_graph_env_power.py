@@ -727,7 +727,7 @@ class SlottedGraphEnvPower:
         and output data for our likings betwwens time slots
         '''
         # gather rate and delay data
-        all_data , Avg_Rate_over_flows ,_ = self.get_rates_data()
+        all_data , Avg_Rate_over_flows = self.get_rates_data()
 
         # reset demands for the next time slot
         self.allocated = []
@@ -762,10 +762,24 @@ class SlottedGraphEnvPower:
         return data
 
     def get_rates_data(self):
+
         data = self.routing_metrics['rate']['rate_per_flow']
-        Avg_Rate_over_flows = np.mean(data, axis=0)
-        Avg_Rate_over_time = np.mean(data, axis=1)
-        return data,Avg_Rate_over_flows,Avg_Rate_over_time
+        # data[np.isinf(data)] = 0 # replace all inf to 0  (in case flow finished before slot ends)
+        Avg_Rate_over_flows = []
+        for second in range(self.slot_duration):
+            avg_rate_in_sedond = 0
+            divide_by = 0
+            for flow in range(data.shape[0]):
+                if data[flow,second] != np.inf:
+                    avg_rate_in_sedond += data[flow,second]
+                    divide_by += 1
+
+            avg_rate_in_sedond = avg_rate_in_sedond / divide_by
+            Avg_Rate_over_flows.append(avg_rate_in_sedond)
+
+        # Avg_Rate_over_flows = np.mean(data, axis=0)
+        # Avg_Rate_over_time = np.mean(data, axis=1)
+        return data,Avg_Rate_over_flows
 
     def edge_list_to_adj_mat(self, lst):
         mat = np.zeros((self.num_nodes, self.num_nodes))

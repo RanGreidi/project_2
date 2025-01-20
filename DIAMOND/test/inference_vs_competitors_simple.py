@@ -3,6 +3,7 @@ import random
 import os
 from datetime import datetime
 import shutil
+import matplotlib.pyplot as plt
 
 
 import sys
@@ -77,8 +78,8 @@ if __name__ == "__main__":
 
     # flow demands
     F = [
-        {"source": 0, "destination": 8, "packets": 100, "time_constrain": 10 , 'flow_idx': 0 }, #Packets [MegaBytes]
-        {"source": 0, "destination": 8, "packets": 1000, "time_constrain": 10, 'flow_idx': 1}#, #Packets [MegaBytes]
+        {"source": 0, "destination": 8, "packets": 20, "time_constrain": 10 , 'flow_idx': 0 }, #Packets [MegaBytes]
+        {"source": 0, "destination": 8, "packets": 10000, "time_constrain": 10, 'flow_idx': 1}#, #Packets [MegaBytes]
         # {"source": 0, "destination": 8, "packets": 1, "time_constrain": 10, 'flow_idx': 2}, #Packets [MegaBytes]
         # {"source": 0, "destination": 8, "packets": 1000, "time_constrain": 10, 'flow_idx': 3}
     ]
@@ -91,7 +92,7 @@ if __name__ == "__main__":
                                         reward_weights=reward_weights,
                                         telescopic_reward = True,
                                         direction = 'minimize',
-                                        slot_duration=60,          # [in SEC]
+                                        slot_duration=5,          # [in SEC]
                                         Tot_num_of_timeslots = 60, # [in Minutes]
                                         render_mode = True,
                                         trx_power_mode='gain',
@@ -99,7 +100,22 @@ if __name__ == "__main__":
 
     slotted_diamond = SlottedDIAMOND(grrl_model_path=MODEL_PATH)
     
-    diamond_paths, slotted_grrl_rates_data, slotted_grrl_delay_data = slotted_diamond(slotted_env, grrl_data=True)
+    Tot_rates = slotted_diamond(slotted_env, grrl_data=False)
+
+
+    # plot rates
+    time_axis = list(range(len(Tot_rates)))
+    plt.figure()
+    plt.plot(time_axis[4:], Tot_rates[4:], linestyle='-', color='b', label='Avg Rate [Avg over all flows]')
+    # Add labels and title
+    plt.xlabel('Time (seconds)')
+    plt.ylabel('Average Rate [Mbps]')
+    plt.title('Average Rates Over Time')
+    plt.legend()
+
+    # Show the plot
+    plt.savefig('average_rates_over_time.png')
+
 
 ''' 
 Guide for AVIV:

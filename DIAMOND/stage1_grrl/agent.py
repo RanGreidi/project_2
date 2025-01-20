@@ -139,6 +139,7 @@ class SlottedGRRL:
         state = env.reset()
         reward = 0
         Tot_num_of_timeslots = env.Tot_num_of_timeslots
+        Tot_rates = []
 
         for ii in range(Tot_num_of_timeslots): # as long there is still flows running (determines the num of time_slotes in one episode)
             for step in range(env.num_flows):
@@ -150,5 +151,5 @@ class SlottedGRRL:
                 state, r = env.step(action)
                 reward += r
             state,SlotRates_AvgOverFlows = env.end_of_slot_update(state)
-        
-        return actions, paths, reward
+            Tot_rates+=(SlotRates_AvgOverFlows)
+        return actions, paths, reward, Tot_rates
