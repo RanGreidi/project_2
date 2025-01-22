@@ -41,47 +41,51 @@ if __name__ == "__main__":
 
     # # BW matrix [MHz]
     # C = 1 * np.ones((N, N))
-    # C = 1 * np.array([  [1, 100, 1, 1],  #means how connects to who
-    #                     [100, 1, 1, 100],
+    # C = 1 * np.array([  [1, 1, 1, 1],  #means how connects to who
     #                     [1, 1, 1, 1],
-    #                     [1, 100, 1, 1]])
+    #                     [1, 1, 1, 1],
+    #                     [1, 1, 1, 1]])
     #------------------------------------------------------------------------
    
     N = 9
 
     # Adjacency matrix
-    A = np.array([[0, 1, 0, 1, 0, 0, 0, 0, 0],
+    A = np.array([[0, 1, 0, 1, 1, 0, 0, 0, 0],
                   [1, 0, 1, 0, 1, 0, 0, 0, 0],
                   [0, 1, 0, 0, 0, 1, 0, 0, 0],
                   [1, 0, 0, 0, 1, 0, 1, 0, 0],
-                  [0, 1, 0, 1, 0, 1, 0, 1, 0],
+                  [1, 1, 0, 1, 0, 1, 0, 1, 0],
                   [0, 0, 1, 0, 1, 0, 0, 0, 1],
                   [0, 0, 0, 1, 0, 0, 0, 1, 0],
                   [0, 0, 0, 0, 1, 0, 1, 0, 1],
                   [0, 0, 0, 0, 0, 1, 0, 1, 0]])
 
     
-    P = [(0.0, 0), (0.0, 0.01), (0.0, 0.02),
-         (0.1, 0), (0.1, 0.01), (0.1, 0.02),
-         (0.2, 0), (0.2, 0.01), (0.2, 0.02)]
+    # P = [(0.0, 0), (0.0, 0.01), (0.0, 0.02),
+    #      (0.1, 0), (0.1, 0.01), (0.1, 0.02),
+    #      (0.2, 0), (0.2, 0.01), (0.2, 0.02)]
    
-    # P = [(0, 0), (0, 1), (0, 2),
-    #      (1, 0), (1, 1), (1, 2),
-    #      (2, 0), (2, 1), (2, 2)]
+    P = [(0, 0), (0, 1), (0, 2),
+         (1, 0), (1, 1), (1, 2),
+         (2, 0), (2, 1), (2, 2)]
     # BW matrix
-    C = 1 * np.ones((N, N))
+    C = 1e3 * np.ones((N, N)) # in KiloHertz
     #------------------------------------------------------------------------
 
 
     # number of paths to choose from
-    action_size = 10                      #search space limitaions?
+    action_size = 1000                      #search space limitaions?
 
-    # flow demands
+    # flow demands in KiloByte
     F = [
-        {"source": 0, "destination": 8, "packets": 10, "time_constrain": 10 , 'flow_idx': 0 },
-        {"source": 0, "destination": 8, "packets": 10, "time_constrain": 10, 'flow_idx': 1}, #Packets [MegaBytes]
-        {"source": 0, "destination": 8, "packets": 10, "time_constrain": 10, 'flow_idx': 2}, #Packets [MegaBytes]
-        {"source": 0, "destination": 8, "packets": 10000, "time_constrain": 10, 'flow_idx': 3}
+        {"source": 0, "destination": 8, "packets": 10 *1e3, "time_constrain": 10 , 'flow_idx': 0 },
+        {"source": 0, "destination": 7, "packets": 100 *1e3, "time_constrain": 10, 'flow_idx': 1}, #Packets [MegaBytes]
+        {"source": 0, "destination": 6, "packets": 500*1e3, "time_constrain": 10, 'flow_idx': 2}, #Packets [MegaBytes]
+        {"source": 0, "destination": 5, "packets": 1000*1e3, "time_constrain": 10, 'flow_idx': 3},
+        {"source": 0, "destination": 4, "packets": 700 *1e3, "time_constrain": 10 , 'flow_idx': 4 },
+        {"source": 0, "destination": 3, "packets": 300 *1e3, "time_constrain": 10, 'flow_idx': 5}, #Packets [MegaBytes]
+        {"source": 0, "destination": 2, "packets": 150*1e3, "time_constrain": 10, 'flow_idx': 6}, #Packets [MegaBytes]
+        {"source": 0, "destination": 1, "packets": 50*1e3, "time_constrain": 10, 'flow_idx': 7}
     ]
 
     slotted_env = SlottedGraphEnvPower( adjacency_matrix=A,
@@ -92,11 +96,12 @@ if __name__ == "__main__":
                                         reward_weights=reward_weights,
                                         telescopic_reward = True,
                                         direction = 'minimize',
-                                        slot_duration=60,          # [in SEC]
-                                        Tot_num_of_timeslots = 60, # [in Minutes]
+                                        slot_duration = int(1 * 1e3),          # [in SEC ]
+                                        Tot_num_of_timeslots = 1000,         # [num of time slots]
                                         render_mode = False,
                                         trx_power_mode='gain',
                                         channel_gain = 1,
+                                        # channel_manual_gain = [100,200,3,400,500,600],
                                         simualte_residauls = False)
 
     UNslotted_env = SlottedGraphEnvPower( adjacency_matrix=A,
@@ -107,11 +112,12 @@ if __name__ == "__main__":
                                         reward_weights=reward_weights,
                                         telescopic_reward = True,
                                         direction = 'minimize',
-                                        slot_duration=60*60,          # [in SEC]
+                                        slot_duration=int(1000 * 1e3),          # [in SEC]
                                         Tot_num_of_timeslots = 1, # [in Minutes]
                                         render_mode = False,
                                         trx_power_mode='gain',
                                         channel_gain = 1,
+                                        # channel_manual_gain = [100,200,3,400,500,600],
                                         simualte_residauls = False)    
 
     slotted_diamond = SlottedDIAMOND(grrl_model_path=MODEL_PATH)
@@ -123,11 +129,11 @@ if __name__ == "__main__":
     # plot rates
     time_axis = list(range(len(Tot_rates_sloted)))
     plt.figure()
-    plt.plot(time_axis[4:], Tot_rates_sloted[4:], linestyle='-', color='b', label='Slotted Avg Rate [Avg over all flows]')
-    plt.plot(time_axis[4:], Tot_rates_UNslotted[4:], linestyle='-', color='r', label='UnSlotted Avg Rate [Avg over all flows]')
+    plt.plot(time_axis[:], Tot_rates_sloted[:], linestyle='-', color='b', label='Slotted Avg Rate [Avg over all flows]')
+    plt.plot(time_axis[:], Tot_rates_UNslotted[:], linestyle='-', color='r', label='UnSlotted Avg Rate [Avg over all flows]')
     # Add labels and title
-    plt.xlabel('Time (seconds)')
-    plt.ylabel('Average Rate [Mbps]')
+    plt.xlabel('Time (mili seconds)')
+    plt.ylabel('Average Rate [Kbps]')
     plt.title('Average Rates Over Time')
     plt.legend()
 
