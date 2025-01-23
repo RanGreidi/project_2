@@ -57,14 +57,14 @@ if __name__ == "__main__":
     N = 9
 
     # Adjacency matrix
-    A = np.array([[0, 1, 0, 1, 1, 0, 0, 0, 0],
-                  [1, 0, 1, 0, 1, 0, 0, 0, 0],
+    A = np.array([[0, 1, 0, 1, 1, 1, 1, 1, 0],
+                  [1, 0, 1, 1, 1, 0, 0, 0, 0],
                   [0, 1, 0, 0, 0, 1, 0, 0, 0],
-                  [1, 0, 0, 0, 1, 0, 1, 0, 0],
+                  [1, 1, 0, 0, 1, 0, 1, 0, 0],
                   [1, 1, 0, 1, 0, 1, 0, 1, 0],
-                  [0, 0, 1, 0, 1, 0, 0, 0, 1],
-                  [0, 0, 0, 1, 0, 0, 0, 1, 0],
-                  [0, 0, 0, 0, 1, 0, 1, 0, 1],
+                  [1, 0, 1, 0, 1, 0, 0, 0, 1],
+                  [1, 0, 0, 1, 0, 0, 0, 1, 0],
+                  [1, 0, 0, 0, 1, 0, 1, 0, 1],
                   [0, 0, 0, 0, 0, 1, 0, 1, 0]])
 
     
@@ -152,7 +152,13 @@ if __name__ == "__main__":
 
     plt.figure()
     plt.plot(time_axis_in_seconds, Tot_rates_sloted_interpolated, linestyle='-', color='b', label='Slotted Avg Rate [Avg over all flows]')
+    nan_index = np.where(np.isnan(Tot_rates_sloted_interpolated))[0][0]
+    plt.axvline(x=nan_index, color='b', linestyle='--', label='Slotted flows are done')
+
     plt.plot(time_axis_in_seconds, Tot_rates_Unsloted_interpolated, linestyle='-', color='r', label='UnSlotted Avg Rate [Avg over all flows]')
+    nan_index = np.where(np.isnan(Tot_rates_Unsloted_interpolated))[0][0]
+    plt.axvline(x=nan_index, color='r', linestyle='--', label='UnSlotted flows are done')
+
     # Add labels and title
     plt.xlabel('Time (seconds)')
     plt.ylabel('Average Rate [bps]')

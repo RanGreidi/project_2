@@ -590,8 +590,7 @@ class SlottedGraphEnvPower:
         self.total_time_stemp_in_single_slot = 0
         metadata = []
         if self.render_mode: 
-            if len(self.allocated) == len(self.flows): plot_rate = 1
-            self.show_graph(active_links, self.total_time_stemp_in_single_slot, plot_rate ,self.total_time_stemp_in_single_slot)                   
+            self.show_graph(active_links, self.total_time_stemp_in_single_slot, 0 ,self.total_time_stemp_in_single_slot)                   
     
         while True:
             # transmit single hop for all flows
@@ -599,7 +598,7 @@ class SlottedGraphEnvPower:
                 active_links, hop_metadata = self._transmit_singe_timestep(active_links, self.total_time_stemp_in_single_slot)
                 
                 if self.render_mode: 
-                    if len(self.allocated) == len(self.flows): plot_rate = 1
+                    plot_rate = 1 if len(self.allocated) == len(self.flows) else 0
                     self.show_graph(active_links, self.total_time_stemp_in_single_slot, plot_rate ,self.total_time_stemp_in_single_slot)
                 
                 metadata.append(hop_metadata)
