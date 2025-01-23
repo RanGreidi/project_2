@@ -26,9 +26,9 @@ if __name__ == "__main__":
     reward_weights = dict(rate_weight=0.5, delay_weight=0, interference_weight=0, capacity_reduction_weight=0)
 
     # ------------------------------------------------------------------------
-    Simulation_Time_Resolution = 1e-3       # miliseconds (i.e. each time step is a milisecond - this is the duration of each time step in [SEC])
+    Simulation_Time_Resolution = 1e-1       # miliseconds (i.e. each time step is a milisecond - this is the duration of each time step in [SEC])
     BW_value_in_Hertz = 1#1e6                   # wanted BW in Hertz
-    slot_duration = 5                      # [SEC] 
+    slot_duration = 30                     # [SEC] 
     Tot_num_of_timeslots = 5               # [num of time slots]
     #------------------------------------------------------------------------
 
@@ -82,7 +82,7 @@ if __name__ == "__main__":
 
 
     # number of paths to choose from
-    action_size = 1000                      #search space limitaions?
+    action_size = 10                      #search space limitaions?
 
     # flow demands in KiloByte
     F = [
@@ -122,7 +122,7 @@ if __name__ == "__main__":
                                         node_positions=P,
                                         k=action_size,
                                         reward_weights=reward_weights,
-                                        telescopic_reward = True,
+                                        telescopic_reward = False,
                                         direction = 'minimize',
                                         slot_duration = int( (slot_duration*Tot_num_of_timeslots) / Simulation_Time_Resolution),          # [in SEC]
                                         Tot_num_of_timeslots = 1, # [in Minutes]

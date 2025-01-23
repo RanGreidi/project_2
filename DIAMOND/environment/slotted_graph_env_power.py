@@ -743,6 +743,42 @@ class SlottedGraphEnvPower:
 
         return reward
 
+    # def end_of_slot_update(self,state):
+    #     '''
+    #     this function reset the part in state that is needed to be resets (demands) betwwen each time slot
+    #     and output data for our likings betwwens time slots
+    #     '''
+    #     # gather rate and delay data
+    #     all_data , Avg_Rate_over_flows = self.get_rates_data()
+
+    #     # reset routing metrics
+    #     self.routing_metrics = dict(rate=dict(rate_per_flow=np.full([self.num_flows,self.slot_duration],np.inf).astype(np.float64)),
+    #                                 delay=dict(end_to_end_delay_per_flow=np.zeros(self.num_flows)))
+
+    #     # reset demands for the next time slot
+    #     self.allocated = []
+    #     allocated = [a[0] for a in self.allocated]
+    #     free_actions = list(set(range(len(self.flows))) - set(allocated)) # unassinged flows, EMPTY free_actions means we are in the last flow in the slot
+    #     free_paths = []
+    #     free_paths_idx = []
+    #     demand = []
+    #     for a in free_actions:
+    #         p = self.possible_actions[a]        #posible routs for unassigned flow a
+    #         free_paths_idx += [[a, k] for k in range(len(p))]
+    #         free_paths += p
+    #         demand += [self.flows[a]["packets"] for k in p]
+
+    #     # demand
+    #     if free_actions: # if we are not in the last time step of the time slot, than we can calculate the demand
+    #         normalized_demand = np.array(demand).astype(np.float32) / self.max_demand
+    #     else: # if we are in the last time step of the time slot, return initialzed demand
+    #         normalized_demand = None
+
+    #     #copy rest of the state, and update the demand
+    #     new_state = state[0], state[1], free_paths, free_paths_idx, normalized_demand
+
+    #     return new_state, Avg_Rate_over_flows
+
     def end_of_slot_update(self,state):
         '''
         this function reset the part in state that is needed to be resets (demands) betwwen each time slot
@@ -751,33 +787,9 @@ class SlottedGraphEnvPower:
         # gather rate and delay data
         all_data , Avg_Rate_over_flows = self.get_rates_data()
 
-        # reset routing metrics
-        self.routing_metrics = dict(rate=dict(rate_per_flow=np.full([self.num_flows,self.slot_duration],np.inf).astype(np.float64)),
-                                    delay=dict(end_to_end_delay_per_flow=np.zeros(self.num_flows)))
+        observation = self.reset()
 
-        # reset demands for the next time slot
-        self.allocated = []
-        allocated = [a[0] for a in self.allocated]
-        free_actions = list(set(range(len(self.flows))) - set(allocated)) # unassinged flows, EMPTY free_actions means we are in the last flow in the slot
-        free_paths = []
-        free_paths_idx = []
-        demand = []
-        for a in free_actions:
-            p = self.possible_actions[a]        #posible routs for unassigned flow a
-            free_paths_idx += [[a, k] for k in range(len(p))]
-            free_paths += p
-            demand += [self.flows[a]["packets"] for k in p]
-
-        # demand
-        if free_actions: # if we are not in the last time step of the time slot, than we can calculate the demand
-            normalized_demand = np.array(demand).astype(np.float32) / self.max_demand
-        else: # if we are in the last time step of the time slot, return initialzed demand
-            normalized_demand = None
-
-        #copy rest of the state, and update the demand
-        new_state = state[0], state[1], free_paths, free_paths_idx, normalized_demand
-
-        return new_state, Avg_Rate_over_flows
+        return observation, Avg_Rate_over_flows
 
     def get_delay_data(self):
         data = self.routing_metrics.get('delay')
