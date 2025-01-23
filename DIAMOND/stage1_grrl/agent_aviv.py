@@ -132,7 +132,7 @@ class SlottedGRRL:
 
         return int(action.cpu().detach().numpy())
 
-    def run(self, env, arrival_matrix=None):
+    def run(self, env, arrival_matrix=None, manual_actions=[]):
         """
         run GRRL to get flow allocations
         :param env: environment to interact with
@@ -146,14 +146,17 @@ class SlottedGRRL:
         Tot_num_of_timeslots = env.Tot_num_of_timeslots
         Tot_rates = []
 
-        manual_actions = [[0, 0], [1, 1]]
+        # manual_actions = [[0, 0], [1, 1]]
 
         for timeslot in range(Tot_num_of_timeslots):  # as long there is still flows running (determines the num of time_slotes in one episode)
 
             for step in range(env.num_flows):
-                a = self._select_action(state, env.possible_actions[step])
-                action = manual_actions[step]  # action = [step, a]
-                # action = [step, a]
+                if manual_actions:
+                    action = manual_actions[step]  # action = [step, a]
+                else:
+                    a = self._select_action(state, env.possible_actions[step])
+                    action = [step, a]
+
                 actions.append(action)
                 paths[step].append(env.possible_actions[action[0]][action[1]])
                 state, r = env.step(action)
@@ -161,6 +164,9 @@ class SlottedGRRL:
 
             state,SlotRates_AvgOverFlows = env.end_of_slot_update(state)
             Tot_rates += (SlotRates_AvgOverFlows)
+            if env.original_num_flows != env.num_flows:
+                print(f'{env.original_num_flows - env.num_flows} / {env.original_num_flows} Finished at timeslot {timeslot}')
+            print(f'Finished Timeslot {timeslot+1}/{Tot_num_of_timeslots}')
             # self.update_flows(env=env, timeslot=timeslot, arrival_matrix=arrival_matrix)
             # Todo: needs to update state for next GNN decision
 

@@ -31,7 +31,8 @@ class SlottedGraphEnvPower:
                  render_mode=True,
                  seed=42,
                  slot_duration=60,  # [SEC]
-                 Tot_num_of_timeslots=60,  # [Minutes]
+                 Tot_num_of_timeslots=60, # [Minutes]
+                 simulate_residuals=False,
                  **kwargs):
 
         # seed
@@ -98,6 +99,7 @@ class SlottedGraphEnvPower:
         self.active_links_after_time_slot = []
 
         self.render_mode = render_mode
+        self.simulate_residuals = simulate_residuals
         # initialization once
         self.__create_graph()
         self.__calc_possible_actions()
@@ -118,6 +120,16 @@ class SlottedGraphEnvPower:
         # calc interference_map
         self.gen_edge_data()
         self.init_edge_data()
+
+    def plot_raw_graph(self, save_path=None):
+        """ draw global graph"""
+        plt.figure()
+        nx.draw_networkx(self.graph, self.graph_pos, with_labels=True, node_color="tab:blue")
+        plt.axis('off')
+        if save_path is not None:
+            plt.savefig(save_path, bbox_inches='tight')
+        else:
+            plt.show()
 
     def show_graph(self, active_links, total_time_slots, plot_rate, total_time_stemp_in_single_slot, show_fig=True):
         """ draw global graph"""
@@ -274,13 +286,16 @@ class SlottedGraphEnvPower:
         """
         L = self.num_edges // 2
         power_mode = self.kwargs.get('trx_power_mode', 'equal')
-        assert power_mode in ('equal', 'rayleigh', 'rayleigh_gain', 'steps', 'gain'), f'Invalid power mode. got {power_mode}'
+        assert power_mode in ('equal', 'rayleigh', 'rayleigh_gain', 'steps', 'gain', 'manual_gain'), f'Invalid power mode. got {power_mode}'
         channel_coeff = np.ones(L)
         channel_gain = np.ones(L)
         if 'rayleigh' in power_mode:
             channel_coeff = np.random.rayleigh(scale=self.kwargs.get('rayleigh_scale', 1), size=L)
         if 'gain' in power_mode:
-            channel_gain = self.kwargs.get('channel_gain', np.random.uniform(low=0.1, high=10, size=L)) * np.ones(L)
+            channel_gain = self.kwargs.get('channel_gain', np.random.uniform(low=1, high=10, size=L)) * np.ones(L)
+        if 'manual_gain' in power_mode:
+            channel_gain = self.kwargs.get('channel_manual_gain',
+                                           np.random.uniform(low=0.01, high=1000, size=L)) * np.ones(L)
         p_max = self.kwargs.get('max_trx_power', 1) * np.ones(L)
         trx_power = channel_gain * np.minimum(p_max, 1 / channel_coeff)  # P_l
         if power_mode == 'steps':
@@ -640,7 +655,11 @@ class SlottedGraphEnvPower:
             list_of_links_4flow_a = [d for d in sorted_active_links if
                                      d.get('flow_idx') == flow_idx and not d.get('residual_name')]
             _2flows = next((d for d in list_of_links_4flow_a if d.get('link')[0] == a['source']), {})
-            _2res = [d for d in list_of_links_4flow_a if d.get('link')[0] != a['source']]
+            if self.simulate_residuals:
+                _2res = [d for d in list_of_links_4flow_a if d.get('link')[0] != a['source']]
+            else:
+                _2res = []
+
             list_of_links_4flow_a.remove(_2flows) if _2flows else None
             if _2flows:
                 _2flows = dict(source=a['source'],
@@ -687,7 +706,7 @@ class SlottedGraphEnvPower:
 
         self.flows = list_of_2flows
         self.num_flows = len(self.flows)
-        # self.residual_flows += list_of_new_residuals  # TODO : my adding if want to ignore residuals
+        self.residual_flows += list_of_new_residuals  # TODO : my adding if want to ignore residuals
         return
 
     def calc_reward(self, metadata):
@@ -789,15 +808,19 @@ class SlottedGraphEnvPower:
                     avg_rate_in_sedond += data[flow, second]
                     divide_by += 1
 
-            avg_rate_in_sedond = avg_rate_in_sedond / divide_by
+            if divide_by == 0:
+                avg_rate_in_sedond = None
+            else:
+                avg_rate_in_sedond = avg_rate_in_sedond / divide_by
+
             Avg_Rate_over_flows.append(avg_rate_in_sedond)
 
         # Avg_Rate_over_flows = np.mean(data, axis=0)
         # Avg_Rate_over_time = np.mean(data, axis=1)
 
-        # TODO: initialize metrics for next iteration
-        self.routing_metrics = dict(rate=dict(rate_per_flow=np.full([self.original_num_flows, self.slot_duration], np.inf).astype(np.float64)),
-                                    delay=dict(end_to_end_delay_per_flow=np.zeros(self.original_num_flows)))
+        # TODO: reset metrics for next iteration
+        self.routing_metrics = dict(rate=dict(rate_per_flow=np.full([self.num_flows, self.slot_duration], np.inf).astype(np.float64)),
+                                    delay=dict(end_to_end_delay_per_flow=np.zeros(self.num_flows)))
         return data, Avg_Rate_over_flows
 
     def edge_list_to_adj_mat(self, lst):
@@ -828,7 +851,7 @@ class SlottedGraphEnvPower:
         """
         # interference
         if self.current_link_interference_list_4EachTimeStep:
-            interference = self.edge_list_to_adj_mat(np.mean(self.current_link_interference_list_4EachTimeStep, axis=0))
+            interference = self.edge_list_to_adj_mat(self.current_link_interference_list_4EachTimeStep[-1]) # take the last interference
         else:
             interference = np.zeros((self.num_nodes, self.num_nodes))
 
@@ -836,7 +859,7 @@ class SlottedGraphEnvPower:
         # normalized_capacity = self.edge_list_to_adj_mat(self.current_link_capacity)
         if self.current_link_capacity_list_4EachTimeStep:
             normalized_capacity = self.edge_list_to_adj_mat(
-                np.mean(self.current_link_capacity_list_4EachTimeStep, axis=0))
+                self.current_link_capacity_list_4EachTimeStep[-1])  # take the last capacity
         else:
             normalized_capacity = np.zeros((self.num_nodes, self.num_nodes))
 

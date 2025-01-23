@@ -3,6 +3,7 @@ from matplotlib import pyplot as plt
 import networkx as nx
 import os
 import random
+import json
 
 def init_seed(seed):
     os.environ['PYTHONHASHSEED'] = str(seed)
@@ -201,7 +202,8 @@ def generate_random_graph(n, e, seed=None):
     # adjacency matrix
     adjacency = np.zeros((n, n))
     # sample nodes positions in [0,1]^2
-    positions = np.random.uniform(low=0, high=1, size=(n, 2))
+    # Todo: my change. if we want more interference should be closer
+    positions = np.random.uniform(low=0, high=0.1, size=(n, 2))  # np.random.uniform(low=0, high=1, size=(n, 2))
 
     # connect nodes via path to make sure the graph is connected
     for i in range(n-1):
@@ -363,3 +365,23 @@ def plot_slotted_vs_not_slotted_graph(mean_rate_over_all_timesteps_slotted, mean
     plt.ylabel("Rate [Mbps]")
     plt.title("Rate over all timesteps")
     plt.show()
+
+
+def save_arguments_to_file(filename, **kwargs):
+    """
+    Save the provided keyword arguments to a JSON file.
+    :param filename: Name of the file to save the arguments.
+    :param kwargs: Arguments to save.
+    """
+    with open(filename, 'w') as file:
+        json.dump(kwargs, file, indent=4)
+
+
+def load_arguments_from_file(filename):
+    """
+    Load arguments from a JSON file.
+    :param filename: Name of the file to load the arguments from.
+    :return: A dictionary of loaded arguments.
+    """
+    with open(filename, 'r') as file:
+        return json.load(file)
