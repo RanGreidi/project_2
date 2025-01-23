@@ -27,9 +27,9 @@ if __name__ == "__main__":
 
     # ------------------------------------------------------------------------
     Simulation_Time_Resolution = 1e-1       # miliseconds (i.e. each time step is a milisecond - this is the duration of each time step in [SEC])
-    BW_value_in_Hertz = 1#1e6                   # wanted BW in Hertz
-    slot_duration = 30                     # [SEC] 
-    Tot_num_of_timeslots = 5               # [num of time slots]
+    BW_value_in_Hertz = 1e6                   # wanted BW in Hertz
+    slot_duration = 60                     # [SEC] 
+    Tot_num_of_timeslots = 150               # [num of time slots]
     #------------------------------------------------------------------------
 
     # # number of nodes
@@ -72,9 +72,9 @@ if __name__ == "__main__":
     #      (0.1, 0), (0.1, 0.01), (0.1, 0.02),
     #      (0.2, 0), (0.2, 0.01), (0.2, 0.02)]
    
-    P = [(0, 0), (0, 100), (0, 200),
-         (100, 0), (100, 100), (100, 200),
-         (200, 0), (200, 100), (200, 200)]
+    P = [(0, 0), (0, 10), (0, 20),
+         (10, 0), (10, 10), (10, 20),
+         (20, 0), (20, 10), (20, 20)]
     
     # BW matrix
     C = BW_value_in_Hertz * np.ones((N, N)) * Simulation_Time_Resolution 
@@ -85,19 +85,19 @@ if __name__ == "__main__":
     action_size = 10                      #search space limitaions?
 
     # flow demands in KiloByte
-    F = [
-        {"source": 0, "destination": 8, "packets": 1000    , "time_constrain": 10 , 'flow_idx': 0 }  ]  
-    
     # F = [
-    #     #{"source": 0, "destination": 8, "packets": 1000    *1e6, "time_constrain": 10 , 'flow_idx': 0 }#,
-    #     # {"source": 0, "destination": 7, "packets": 1000    *1e6, "time_constrain": 10, 'flow_idx': 1}#,         #Packets [in Bits]
-    #     # {"source": 0, "destination": 6, "packets": 500  *1e6, "time_constrain": 10, 'flow_idx': 2},         #Packets [in Bits]
-    #     # {"source": 0, "destination": 5, "packets": 1000 *1e6, "time_constrain": 10, 'flow_idx': 3},
-    #     # {"source": 0, "destination": 4, "packets": 700  *1e6, "time_constrain": 10 , 'flow_idx': 4 },
-    #     # {"source": 0, "destination": 3, "packets": 300  *1e6, "time_constrain": 10, 'flow_idx': 5},         #Packets [in Bits]
-    #     # {"source": 0, "destination": 2, "packets": 150  *1e6, "time_constrain": 10, 'flow_idx': 6},         #Packets [in Bits]
-    #     # {"source": 0, "destination": 1, "packets": 50   *1e6, "time_constrain": 10, 'flow_idx': 7}
-    # ]
+    #     {"source": 0, "destination": 8, "packets": 1000    , "time_constrain": 10 , 'flow_idx': 0 }  ]  
+    
+    F = [
+        {"source": 0, "destination": 8, "packets": 1000    *1e6, "time_constrain": 10 , 'flow_idx': 0 },
+        {"source": 0, "destination": 7, "packets": 1000    *1e6, "time_constrain": 10, 'flow_idx': 1},         #Packets [in Bits]
+        {"source": 0, "destination": 6, "packets": 500  *1e6, "time_constrain": 10, 'flow_idx': 2},         #Packets [in Bits]
+        {"source": 0, "destination": 5, "packets": 1000 *1e6, "time_constrain": 10, 'flow_idx': 3},
+        {"source": 0, "destination": 4, "packets": 700  *1e6, "time_constrain": 10 , 'flow_idx': 4 },
+        {"source": 0, "destination": 3, "packets": 300  *1e6, "time_constrain": 10, 'flow_idx': 5},         #Packets [in Bits]
+        {"source": 0, "destination": 2, "packets": 150  *1e6, "time_constrain": 10, 'flow_idx': 6},         #Packets [in Bits]
+        {"source": 0, "destination": 1, "packets": 50   *1e6, "time_constrain": 10, 'flow_idx': 7}
+    ]
 
     slotted_env = SlottedGraphEnvPower( adjacency_matrix=A,
                                         bandwidth_matrix=C,
