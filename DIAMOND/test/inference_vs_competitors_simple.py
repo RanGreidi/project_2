@@ -4,6 +4,7 @@ import os
 from datetime import datetime
 import shutil
 import matplotlib.pyplot as plt
+from scipy.interpolate import interp1d
 
 
 import sys
@@ -23,6 +24,12 @@ os.environ["PYTHONHASHSEED"] = str(SEED)
 if __name__ == "__main__":
     MODEL_PATH = os.path.join("DIAMOND", "pretrained", "model_20221113_212726_480.pt")
     reward_weights = dict(rate_weight=0.5, delay_weight=0, interference_weight=0, capacity_reduction_weight=0)
+
+    # ------------------------------------------------------------------------
+    Simulation_Time_Resolution = 1e-3       # miliseconds (i.e. each time step is a milisecond - this is the duration of each time step in [SEC])
+    BW_value_in_Hertz = 1#1e6                   # wanted BW in Hertz
+    slot_duration = 5                      # [SEC] 
+    Tot_num_of_timeslots = 5               # [num of time slots]
     #------------------------------------------------------------------------
 
     # # number of nodes
@@ -65,11 +72,12 @@ if __name__ == "__main__":
     #      (0.1, 0), (0.1, 0.01), (0.1, 0.02),
     #      (0.2, 0), (0.2, 0.01), (0.2, 0.02)]
    
-    P = [(0, 0), (0, 1), (0, 2),
-         (1, 0), (1, 1), (1, 2),
-         (2, 0), (2, 1), (2, 2)]
+    P = [(0, 0), (0, 100), (0, 200),
+         (100, 0), (100, 100), (100, 200),
+         (200, 0), (200, 100), (200, 200)]
+    
     # BW matrix
-    C = 1e3 * np.ones((N, N)) # in KiloHertz
+    C = BW_value_in_Hertz * np.ones((N, N)) * Simulation_Time_Resolution 
     #------------------------------------------------------------------------
 
 
@@ -78,15 +86,18 @@ if __name__ == "__main__":
 
     # flow demands in KiloByte
     F = [
-        {"source": 0, "destination": 8, "packets": 10 *1e3, "time_constrain": 10 , 'flow_idx': 0 },
-        {"source": 0, "destination": 7, "packets": 100 *1e3, "time_constrain": 10, 'flow_idx': 1}, #Packets [MegaBytes]
-        {"source": 0, "destination": 6, "packets": 500*1e3, "time_constrain": 10, 'flow_idx': 2}, #Packets [MegaBytes]
-        {"source": 0, "destination": 5, "packets": 1000*1e3, "time_constrain": 10, 'flow_idx': 3},
-        {"source": 0, "destination": 4, "packets": 700 *1e3, "time_constrain": 10 , 'flow_idx': 4 },
-        {"source": 0, "destination": 3, "packets": 300 *1e3, "time_constrain": 10, 'flow_idx': 5}, #Packets [MegaBytes]
-        {"source": 0, "destination": 2, "packets": 150*1e3, "time_constrain": 10, 'flow_idx': 6}, #Packets [MegaBytes]
-        {"source": 0, "destination": 1, "packets": 50*1e3, "time_constrain": 10, 'flow_idx': 7}
-    ]
+        {"source": 0, "destination": 8, "packets": 1000    , "time_constrain": 10 , 'flow_idx': 0 }  ]  
+    
+    # F = [
+    #     #{"source": 0, "destination": 8, "packets": 1000    *1e6, "time_constrain": 10 , 'flow_idx': 0 }#,
+    #     # {"source": 0, "destination": 7, "packets": 1000    *1e6, "time_constrain": 10, 'flow_idx': 1}#,         #Packets [in Bits]
+    #     # {"source": 0, "destination": 6, "packets": 500  *1e6, "time_constrain": 10, 'flow_idx': 2},         #Packets [in Bits]
+    #     # {"source": 0, "destination": 5, "packets": 1000 *1e6, "time_constrain": 10, 'flow_idx': 3},
+    #     # {"source": 0, "destination": 4, "packets": 700  *1e6, "time_constrain": 10 , 'flow_idx': 4 },
+    #     # {"source": 0, "destination": 3, "packets": 300  *1e6, "time_constrain": 10, 'flow_idx': 5},         #Packets [in Bits]
+    #     # {"source": 0, "destination": 2, "packets": 150  *1e6, "time_constrain": 10, 'flow_idx': 6},         #Packets [in Bits]
+    #     # {"source": 0, "destination": 1, "packets": 50   *1e6, "time_constrain": 10, 'flow_idx': 7}
+    # ]
 
     slotted_env = SlottedGraphEnvPower( adjacency_matrix=A,
                                         bandwidth_matrix=C,
@@ -96,13 +107,14 @@ if __name__ == "__main__":
                                         reward_weights=reward_weights,
                                         telescopic_reward = True,
                                         direction = 'minimize',
-                                        slot_duration = int(1 * 1e3),          # [in SEC ]
-                                        Tot_num_of_timeslots = 1000,         # [num of time slots]
+                                        slot_duration = int(slot_duration / Simulation_Time_Resolution),          # [in SEC ]
+                                        Tot_num_of_timeslots = Tot_num_of_timeslots,         # [num of time slots]
                                         render_mode = False,
                                         trx_power_mode='gain',
                                         channel_gain = 1,
                                         # channel_manual_gain = [100,200,3,400,500,600],
-                                        simualte_residauls = False)
+                                        simualte_residauls = True,
+                                        Simulation_Time_Resolution = Simulation_Time_Resolution)
 
     UNslotted_env = SlottedGraphEnvPower( adjacency_matrix=A,
                                         bandwidth_matrix=C,
@@ -112,13 +124,14 @@ if __name__ == "__main__":
                                         reward_weights=reward_weights,
                                         telescopic_reward = True,
                                         direction = 'minimize',
-                                        slot_duration=int(1000 * 1e3),          # [in SEC]
+                                        slot_duration = int( (slot_duration*Tot_num_of_timeslots) / Simulation_Time_Resolution),          # [in SEC]
                                         Tot_num_of_timeslots = 1, # [in Minutes]
                                         render_mode = False,
                                         trx_power_mode='gain',
                                         channel_gain = 1,
                                         # channel_manual_gain = [100,200,3,400,500,600],
-                                        simualte_residauls = False)    
+                                        simualte_residauls = False,
+                                        Simulation_Time_Resolution = Simulation_Time_Resolution)    
 
     slotted_diamond = SlottedDIAMOND(grrl_model_path=MODEL_PATH)
     
@@ -127,18 +140,41 @@ if __name__ == "__main__":
 
 
     # plot rates
-    time_axis = list(range(len(Tot_rates_sloted)))
+    time_axis_in_resulotion = [i * Simulation_Time_Resolution for i in range(1,len(Tot_rates_sloted)+1)] # This time axis is a samples of each Simulation_Time_Resolution
+    # we want to avarge rates so that we have time axis sampled in seconds (this way spike due to the residual will be smoothed)
+    time_axis_in_seconds = [i  for i in range(1,slot_duration*Tot_num_of_timeslots+1)]
+
+    interpolator_sloted = interp1d(time_axis_in_resulotion, Tot_rates_sloted, kind='linear')
+    Tot_rates_sloted_interpolated = interpolator_sloted(time_axis_in_seconds)
+
+    interpolator_unsloted = interp1d(time_axis_in_resulotion, Tot_rates_UNslotted, kind='linear')
+    Tot_rates_Unsloted_interpolated = interpolator_unsloted(time_axis_in_seconds)
+
     plt.figure()
-    plt.plot(time_axis[:], Tot_rates_sloted[:], linestyle='-', color='b', label='Slotted Avg Rate [Avg over all flows]')
-    plt.plot(time_axis[:], Tot_rates_UNslotted[:], linestyle='-', color='r', label='UnSlotted Avg Rate [Avg over all flows]')
+    plt.plot(time_axis_in_seconds, Tot_rates_sloted_interpolated, linestyle='-', color='b', label='Slotted Avg Rate [Avg over all flows]')
+    plt.plot(time_axis_in_seconds, Tot_rates_Unsloted_interpolated, linestyle='-', color='r', label='UnSlotted Avg Rate [Avg over all flows]')
     # Add labels and title
-    plt.xlabel('Time (mili seconds)')
-    plt.ylabel('Average Rate [Kbps]')
+    plt.xlabel('Time (seconds)')
+    plt.ylabel('Average Rate [bps]')
     plt.title('Average Rates Over Time')
     plt.legend()
 
     # Show the plot
     plt.savefig('average_rates_over_time.png')
+
+
+'''
+timing guide:
+working with resolution of seconds: 
+each time step is a second, if BW is in Hertz then capcaity is in bps, than the rate is in bps and time axis is in seconds
+
+working with resolution of miliseconds: 
+each time step is a milisecond, if BW is in Hertz need to divide BW with *1e3, then capcaity is in bps, than the rate is in bps and time axis is in miliseconds
+
+working with resolution of micro seoconds: 
+each time step is a microsecond, if BW is i Hertz need to devide it by *1e6 then capcaity is in bps, than the rate is in bps and time axis is in microseconds
+
+'''
 
 
 ''' 

@@ -321,8 +321,8 @@ def gen_grid_graph(n, special_edges_add=None, special_edges_remove=None):
 def shortest_path(G, s, d):
     return nx.shortest_path(G, source=s, target=d, weight='weight', method='dijkstra')
 
-def plot_graph(graph,graph_pos, labels,residual_label, total_time_slots,table_data):
-    column_labels = ["Flow", "Rate"]
+def plot_graph(graph,graph_pos, labels,residual_label, total_time_slots,table_data,Simulation_Time_Resolution):
+    column_labels = ["Flow", "Rate [bps]"]
 
     # plot
     plt.figure()
@@ -334,7 +334,7 @@ def plot_graph(graph,graph_pos, labels,residual_label, total_time_slots,table_da
     nx.draw_networkx_edge_labels(graph, graph_pos, edge_labels=labels, font_color='red',font_size=2.5, label_pos=0.3)
     #draw residual
     nx.draw_networkx_edge_labels(graph, graph_pos, edge_labels=residual_label, font_color='blue',font_size=2.5, label_pos=0.7)
-    comment = f"Time step [SEC]: {total_time_slots}"
+    comment = f"Time step [SEC]: {total_time_slots*Simulation_Time_Resolution}"
     plt.text(0.5, -0.1, comment, ha='center', va='center', transform=plt.gca().transAxes,fontsize=7)
     plt.savefig('graph.png',dpi=300)
     plt.close()

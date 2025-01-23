@@ -7,7 +7,7 @@ sys.path.insert(0, 'DIAMOND')
 import numpy as np
 from pprint import pprint
 from collections import Counter
-
+import warnings
 from environment.utils import get_k_paths, one_link_transmission, plot_graph, init_seed
 from names_generator import generate_name
 
@@ -31,6 +31,7 @@ class SlottedGraphEnvPower:
                  slot_duration = 60,          # [SEC]
                  Tot_num_of_timeslots = 60,   # [Minutes]
                  simualte_residauls = True,
+                 Simulation_Time_Resolution = 1e-3,
                  **kwargs):
         
         
@@ -99,6 +100,7 @@ class SlottedGraphEnvPower:
         
         self.render_mode = render_mode
         self.simualte_residauls = simualte_residauls
+        self.Simulation_Time_Resolution = Simulation_Time_Resolution
         # initialization once
         self.__create_graph()
         self.__calc_possible_actions()
@@ -139,10 +141,10 @@ class SlottedGraphEnvPower:
                     u,v = a['link']
                     if (u,v) in residual_dict:
                         flow_name =f"\n res: {a['residual_name']}(flow{a['flow_idx']})"
-                        residual_dict[(u,v)] += (flow_name + f"\n remaining packet: {round(a['packets'],2)} \n Avg. Rate: {round(self.routing_metrics['rate']['rate_per_flow'][a['flow_idx']][total_time_stemp_in_single_slot], 2)}")  
+                        residual_dict[(u,v)] += flow_name + f"\n remaining packet: {round(a['packets'],2)}"
                     else:
                         flow_name = f"\n res: {a['residual_name']}(flow{a['flow_idx']})"
-                        residual_dict.update({(u,v): flow_name + f"\n remaining packet: {round(a['packets'],2)} \n Avg. Rate: {round(self.routing_metrics['rate']['rate_per_flow'][a['flow_idx']][total_time_stemp_in_single_slot],2)}"})                         
+                        residual_dict.update({(u,v): flow_name + f"\n remaining packet: {round(a['packets'],2)}"})
             #add rates table to graph
             flow_rates = self.routing_metrics['rate']['rate_per_flow'][:,total_time_stemp_in_single_slot].tolist()    
             table_data = [[f"Flow {i}", f"{rate:.3f}"] for i, rate in enumerate(flow_rates)]        
@@ -175,7 +177,7 @@ class SlottedGraphEnvPower:
             for v in range(self.num_nodes):
                 if u != v:
                     if (u,v) in label_dict:
-                        label_dict[(u,v)] += (f"\n Capacity: {round(current_link_capacity_mat[u,v],2)}")
+                        label_dict[(u,v)] += (f"\n Capacity [bps]: {round(current_link_capacity_mat[u,v],2)/self.Simulation_Time_Resolution}")
 
 
 
@@ -188,7 +190,7 @@ class SlottedGraphEnvPower:
         #             if (u,v) in label_dict:
         #                 label_dict[(u,v)] += (f"\n Total channel Bandwidth: {bandwidth[u,v]}")
         
-        plot_graph(self.graph, self.graph_pos, label_dict,residual_dict, total_time_slots,table_data)
+        plot_graph(self.graph, self.graph_pos, label_dict,residual_dict, total_time_slots,table_data,self.Simulation_Time_Resolution)
         
     def gen_edge_data(self):
         self.eids = dict()
@@ -507,16 +509,20 @@ class SlottedGraphEnvPower:
             plot_rate = 1
             if total_time_slots == self.slot_duration-1: # last time step in time slot
                 self.residual_flows = next_flows_list
-        
+
+            # if any('residual_name' in d for d in active_links):
+            #     raise ValueError("----------At least one residual flow still contain in the graph, consider running longer slot duration-----------")           
+
             # update rate metric - find bottleneck rate for each flow
             for a in active_links:
-                flow_idx = a['flow_idx']
-                # if not flow_idx[1]: #TODO is this currect?
-                link_capacity = self.current_link_capacity[self.eids[a['link']]]
-                how_many_share_this_link_with_flow_idx = Counter(link['link'] for link in active_links if 'link' in link)[a['link']]
-                availible_resource = link_capacity / how_many_share_this_link_with_flow_idx
-                if self.routing_metrics['rate']['rate_per_flow'][flow_idx][self.total_time_stemp_in_single_slot] > availible_resource:
-                    self.routing_metrics['rate']['rate_per_flow'][flow_idx][self.total_time_stemp_in_single_slot] = availible_resource
+                if 'residual_name' not in a:
+                    flow_idx = a['flow_idx']
+                    # if not flow_idx[1]: #TODO is this currect?
+                    link_capacity = self.current_link_capacity[self.eids[a['link']]]
+                    how_many_share_this_link_with_flow_idx = Counter(link['link'] for link in active_links if 'link' in link)[a['link']]
+                    rate_in_bps = (link_capacity/self.Simulation_Time_Resolution) / how_many_share_this_link_with_flow_idx
+                    if self.routing_metrics['rate']['rate_per_flow'][flow_idx][self.total_time_stemp_in_single_slot] > rate_in_bps:
+                        self.routing_metrics['rate']['rate_per_flow'][flow_idx][self.total_time_stemp_in_single_slot] = rate_in_bps # this is the rate in a single time step (which how much packet were deliverd in a single time resolution)
 
         # update list for all links interefences in order to avarge later
         self.current_link_interference_list_4EachTimeStep.append(self.current_link_interference)
@@ -529,8 +535,8 @@ class SlottedGraphEnvPower:
                 self.routing_metrics['delay']['end_to_end_delay_per_flow'][flow_idx] += 1
 
         # 3. plot & reset & save interferences for next global step
-        if self.render_mode: 
-            self.show_graph(active_links, total_time_slots, plot_rate,self.total_time_stemp_in_single_slot)
+        # if self.render_mode: 
+            # self.show_graph(active_links, total_time_slots, plot_rate,self.total_time_stemp_in_single_slot)
         if next_active_links:
             #self.cumulative_link_interference += self.current_link_interference
             if np.mean(self.current_link_interference) > np.mean(self.cumulative_link_interference):
@@ -583,10 +589,19 @@ class SlottedGraphEnvPower:
 
         self.total_time_stemp_in_single_slot = 0
         metadata = []
+        if self.render_mode: 
+            if len(self.allocated) == len(self.flows): plot_rate = 1
+            self.show_graph(active_links, self.total_time_stemp_in_single_slot, plot_rate ,self.total_time_stemp_in_single_slot)                   
+    
         while True:
             # transmit single hop for all flows
             if self.total_time_stemp_in_single_slot < self.slot_duration: 
                 active_links, hop_metadata = self._transmit_singe_timestep(active_links, self.total_time_stemp_in_single_slot)
+                
+                if self.render_mode: 
+                    if len(self.allocated) == len(self.flows): plot_rate = 1
+                    self.show_graph(active_links, self.total_time_stemp_in_single_slot, plot_rate ,self.total_time_stemp_in_single_slot)
+                
                 metadata.append(hop_metadata)
                 self.total_time_stemp_in_single_slot += 1       
             else:
@@ -826,13 +841,15 @@ class SlottedGraphEnvPower:
             interference = self.edge_list_to_adj_mat(self.current_link_interference_list_4EachTimeStep[-1]) # take the last interference
         else: 
             interference = np.zeros((self.num_nodes,self.num_nodes))
-        
+        self.current_link_interference_list_4EachTimeStep = [] # reset for the next time slot
         # capacity
         #normalized_capacity = self.edge_list_to_adj_mat(self.current_link_capacity)
         if self.current_link_capacity_list_4EachTimeStep:
             normalized_capacity = self.edge_list_to_adj_mat(self.current_link_capacity_list_4EachTimeStep[-1]) # take the last capacity
         else: 
             normalized_capacity = np.zeros((self.num_nodes,self.num_nodes))            
+        self.current_link_capacity_list_4EachTimeStep = [] # reset for the next time slot
+
 
         if self.normalize_capacity:
             normalized_capacity = np.divide(normalized_capacity, self.bandwidth_matrix,

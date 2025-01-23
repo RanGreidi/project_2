@@ -86,7 +86,7 @@ class SlottedGRRL:
         :param path: path to pre-trained model
         """
         # Set the device
-        #self.device = torch.device("cuda:0" if torch.cuda.is_available else "cpu")
+        # self.device = torch.device("cuda:0" if torch.cuda.is_available else "cpu")
         self.device = torch.device('cpu')
         # set path
         self.path = path
@@ -145,7 +145,7 @@ class SlottedGRRL:
             for step in range(env.num_flows):
                 a = self._select_action(state, env.possible_actions[step])
                 # action = manual_actions[step]
-                action = [step, a] 
+                action = [0,0]#[step, a] 
                 actions.append(action)
                 paths.append(env.possible_actions[action[0]][action[1]])
                 state, r = env.step(action)
