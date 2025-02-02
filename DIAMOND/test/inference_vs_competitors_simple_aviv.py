@@ -2,6 +2,7 @@ import numpy as np
 import random
 import os
 import matplotlib.pyplot as plt
+from scipy.interpolate import interp1d
 from datetime import datetime
 import shutil
 import sys
@@ -25,6 +26,11 @@ import copy
 if __name__ == "__main__":
     MODEL_PATH = os.path.join("DIAMOND", "pretrained", "model_20221113_212726_480.pt")
     reward_weights = dict(rate_weight=0.5, delay_weight=0, interference_weight=0, capacity_reduction_weight=0)
+    # ------------------------------------------------------------------------
+    Simulation_Time_Resolution = 1e-2  # 1e-2  # miliseconds (i.e. each time step is a milisecond - this is the duration of each time step in [SEC])
+    BW_value_in_Hertz = 1e6  # 1e6                   # wanted BW in Hertz
+    slot_duration = 60  # [SEC]
+    Tot_num_of_timeslots = 60  # 60  # [num of time slots]
     # ------------------------------------------------------------------------
 
     #  number of nodes
@@ -56,37 +62,43 @@ if __name__ == "__main__":
     #
     # # Adjacency matrix
     #
-    A = np.array([[0, 1, 0, 1, 1, 0, 0, 0, 0],
-                  [1, 0, 1, 0, 1, 0, 0, 0, 0],
+    A = np.array([[0, 1, 0, 1, 1, 1, 1, 1, 0],
+                  [1, 0, 1, 1, 1, 0, 0, 0, 0],
                   [0, 1, 0, 0, 0, 1, 0, 0, 0],
-                  [1, 0, 0, 0, 1, 0, 1, 0, 0],
+                  [1, 1, 0, 0, 1, 0, 1, 0, 0],
                   [1, 1, 0, 1, 0, 1, 0, 1, 0],
-                  [0, 0, 1, 0, 1, 0, 0, 0, 1],
-                  [0, 0, 0, 1, 0, 0, 0, 1, 0],
-                  [0, 0, 0, 0, 1, 0, 1, 0, 1],
+                  [1, 0, 1, 0, 1, 0, 0, 0, 1],
+                  [1, 0, 0, 1, 0, 0, 0, 1, 0],
+                  [1, 0, 0, 0, 1, 0, 1, 0, 1],
                   [0, 0, 0, 0, 0, 1, 0, 1, 0]])
     #
     P = [(0.0, 0), (0.0, 0.01), (0.0, 0.02),
          (0.1, 0), (0.1, 0.01), (0.1, 0.02),
          (0.2, 0), (0.2, 0.01), (0.2, 0.02)]
     #
-    # P = [(0, 0), (0, 1), (0, 2),
-    #      (1, 0), (1, 1), (1, 2),
-    #      (2, 0), (2, 1), (2, 2)]
+    # P = [(0, 0), (0, 10), (0, 20),
+    #      (10, 0), (10, 10), (10, 20),
+    #      (20, 0), (20, 10), (20, 20)]
     # # BW matrix
-    C = 1e3 * np.ones((N, N))  # in Kilohertz
+    C = BW_value_in_Hertz * np.ones((N, N)) * Simulation_Time_Resolution
     #
     #  flow demands
+
+    # F = [
+    #     {"source": 0, "destination": 8, "packets": 1000, "time_constrain": 10, 'flow_idx': 0}
+    # ]
+
     F = [
-         {"source": 0, "destination": 8, "packets": 10 * 1e3, "time_constrain": 10, 'flow_idx': 0},
-         {"source": 0, "destination": 7, "packets": 100 * 1e3, "time_constrain": 10, 'flow_idx': 1},  # Packets [MegaBytes]
-         {"source": 0, "destination": 6, "packets": 500 * 1e3, "time_constrain": 10, 'flow_idx': 2},  # Packets [MegaBytes]
-         {"source": 0, "destination": 5, "packets": 1000 * 1e3, "time_constrain": 10, 'flow_idx': 3},
-         {"source": 0, "destination": 4, "packets": 700 * 1e3, "time_constrain": 10, 'flow_idx': 4},
-         {"source": 0, "destination": 3, "packets": 300 * 1e3, "time_constrain": 10, 'flow_idx': 5},
-         {"source": 0, "destination": 2, "packets": 150 * 1e3, "time_constrain": 10, 'flow_idx': 6},
-         {"source": 0, "destination": 1, "packets": 50 * 1e3, "time_constrain": 10, 'flow_idx': 7}
-         ]
+    {"source": 0, "destination": 8, "packets": 900 * 1e6, "time_constrain": 10, 'flow_idx': 0},
+    {"source": 0, "destination": 7, "packets": 600 * 1e6, "time_constrain": 10, 'flow_idx': 1},         #Packets [in Bits]
+    {"source": 0, "destination": 6, "packets": 400 * 1e6, "time_constrain": 10, 'flow_idx': 2},         #Packets [in Bits]
+    {"source": 0, "destination": 5, "packets": 200 * 1e6, "time_constrain": 10, 'flow_idx': 3},
+    {"source": 0, "destination": 4, "packets": 50 * 1e6, "time_constrain": 10, 'flow_idx': 4},
+    {"source": 0, "destination": 3, "packets": 10 * 1e6, "time_constrain": 10, 'flow_idx': 5},         #Packets [in Bits]
+    {"source": 0, "destination": 2, "packets": 30 * 1e6, "time_constrain": 10, 'flow_idx': 6},         #Packets [in Bits]
+    {"source": 0, "destination": 1, "packets": 40 * 1e6, "time_constrain": 10, 'flow_idx': 7}
+    ]
+
     # ------------------------------------------------------------------------
 
     # -------------------------- Aviv Topology ----------------------------------------------
@@ -115,10 +127,10 @@ if __name__ == "__main__":
     #     {"source": 0, "destination": 1, "packets": 100 * 1e3, "time_constrain": 10, 'flow_idx': 1}
     # ]
 
-    # ------------------------------------------------------------------------
+    # -------------------------------- Ran Costume Topologies ----------------------------------------
 
     # number of paths to choose from
-    action_size = 100  # search space limitaions?
+    action_size = 20  # search space limitaions?
 
     #
     # slotted_env = SlottedGraphEnvPower(adjacency_matrix=A,
@@ -127,15 +139,16 @@ if __name__ == "__main__":
     #                                    node_positions=P,
     #                                    k=action_size,
     #                                    reward_weights=reward_weights,
-    #                                    telescopic_reward=True,
+    #                                    telescopic_reward=False,
     #                                    direction='minimize',
-    #                                    slot_duration=int(1 * 1e3),  # [in SEC]
-    #                                    Tot_num_of_timeslots=1000,  # [in Minutes]
+    #                                    slot_duration= int(slot_duration / Simulation_Time_Resolution),          # [in SEC ]
+    #                                    Tot_num_of_timeslots=Tot_num_of_timeslots,         # [num of time slots]
     #                                    render_mode=False,
     #                                    trx_power_mode='gain',
     #                                    channel_gain=1,
     #                                    # channel_manual_gain = [100,200,3,400,500,600],
-    #                                    simualte_residauls=False)
+    #                                    simulate_residuals=True,
+    #                                    Simulation_Time_Resolution=Simulation_Time_Resolution)
     #
     # un_slotted_env = SlottedGraphEnvPower(adjacency_matrix=A,
     #                                    bandwidth_matrix=C,
@@ -145,81 +158,99 @@ if __name__ == "__main__":
     #                                    reward_weights=reward_weights,
     #                                    telescopic_reward=True,
     #                                    direction='minimize',
-    #                                    slot_duration=int(1 * 1e3),  # [in SEC]
-    #                                    Tot_num_of_timeslots=1000,  # [in Minutes]
+    #                                    slot_duration=int((slot_duration*Tot_num_of_timeslots) / Simulation_Time_Resolution),
+    #                                    Tot_num_of_timeslots=1,  # [in Minutes]
     #                                    render_mode=False,
     #                                    trx_power_mode='gain',
     #                                    channel_gain=1,
     #                                    # channel_manual_gain = [100,200,3,400,500,600],
-    #                                    simualte_residauls=False)
+    #                                    simulate_residuals=False,
+    #                                    Simulation_Time_Resolution=Simulation_Time_Resolution)
 
-    # -------------------- Try and use "generate_env" for general topology ------------------------ #
+    # --------------------------------------------------------------------------------------------- #
+    # -------------------- Try and use "generate_env" for random topology ------------------------ #
 
     # Function arguments
     slotted_env_args = {
-        "num_nodes": 20,
-        "num_edges": 10,
+        "num_nodes": 60,
+        "num_edges": 70,
         "num_flows": 10,
-        "min_flow_demand": 10 * 1e3,
-        "max_flow_demand": 10000 * 1e3,
-        "delta": 1 * 1e3,
+        "min_flow_demand": 10 * 1e6,
+        "max_flow_demand": 1000 * 1e6,
+        "delta": 1 * 1e6,
         "num_actions": 20,
-        "min_capacity": 0.5 * 1e3,
-        "max_capacity": 5 * 1e3,
+        "min_capacity": 1 * 1e6,  # [Hz]
+        "max_capacity": 10 * 1e6,
         "direction": "minimize",
         "reward_balance": 0.8,
         "seed": 42,
         "graph_mode": "random",
         "reward_weights": reward_weights,
         "telescopic_reward": True,
-        "slot_duration": int(1 * 1e3),
-        "Tot_num_of_timeslots": 1000,
+        "Simulation_Time_Resolution": Simulation_Time_Resolution,
+        "slot_duration": slot_duration,
+        "Tot_num_of_timeslots": Tot_num_of_timeslots,
         "render_mode": False,
         "trx_power_mode": "gain",
         "channel_gain": 1,
-        "simualte_residauls": False,
+        "simulate_residuals": True,
         "given_flows": None,
+        "max_position": 1.0
     }
 
     un_slotted_env_args = {
-                        "num_nodes": 20,
-                        "num_edges": 10,
+                        "num_nodes": 60,
+                        "num_edges": 70,
                         "num_flows": 10,
-                        "min_flow_demand": 10 * 1e3,
-                        "max_flow_demand": 10000 * 1e3,
-                        "delta": 1 * 1e3,
+                        "min_flow_demand": 10 * 1e6,
+                        "max_flow_demand": 1000 * 1e6,
+                        "delta": 1 * 1e6,
                         "num_actions": 20,
-                        "min_capacity": 0.5 * 1e3,
-                        "max_capacity": 5 * 1e3,
+                        "min_capacity": 1 * 1e6,
+                        "max_capacity": 10 * 1e6,
                         "direction": "minimize",
                         "reward_balance": 0.8,
                         "seed": 42,
                         "graph_mode": "random",
                         "reward_weights": reward_weights,
                         "telescopic_reward": True,
-                        "slot_duration": 1000 * int(1 * 1e3),
+                        "Simulation_Time_Resolution": Simulation_Time_Resolution,
+                        "slot_duration": Tot_num_of_timeslots * slot_duration,
                         "Tot_num_of_timeslots": 1,
                         "render_mode": False,
                         "trx_power_mode": "gain",
                         "channel_gain": 1,
-                        "simualte_residauls": False,
+                        "simulate_residuals": False,
                         "given_flows": None,
+                        "max_position": 1.0
                     }
 
-    # ------------------------------------------------------------------------- #
-    save_arguments = True
-    # --------------- Save function arguments For Analysis -------------------- #
-    if save_arguments:
-        base_path = r"C:\Users\beaviv\Ran_DIAMOND_Plots\slotted_vs_unslotted\random_topologies"
-        subfolder_name = f"{slotted_env_args['num_nodes']}_Nodes_{slotted_env_args['num_edges']}_Edges"
-        timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")  # Add timestamp
-        subfolder_path = os.path.join(base_path, subfolder_name, timestamp)
-        # Ensure the directory exists
-        os.makedirs(subfolder_path, exist_ok=True)
-        # Full file path
-        file_path = os.path.join(subfolder_path, "generate_slotted_env_args.json")
-        save_arguments_to_file(filename=file_path, args=slotted_env_args)
-    # ------------------------------------------------------------------------- #
+    load_arguments = True
+    # ---------------- Loading args For Observation -------------- #
+    if load_arguments:
+        subfolder_path = r'C:\Users\beaviv\Ran_DIAMOND_Plots\slotted_vs_unslotted\random_topologies\20_Nodes_35_Edges\20250127_161631_20_Flows'
+        slotted_file_path = os.path.join(subfolder_path, "generate_slotted_env_args.json")
+        slotted_env_args = load_arguments_from_file(filename=slotted_file_path)['args']
+
+        slotted_env_args["simulate_residuals"] = True
+        slotted_env_args["render_mode"] = True
+
+        # ----------------- Fit un slotted args -------------------- #
+        un_slotted_env_args = copy.deepcopy(slotted_env_args)
+        un_slotted_env_args["slot_duration"] = slotted_env_args["Tot_num_of_timeslots"] * slotted_env_args["slot_duration"]
+        un_slotted_env_args["Tot_num_of_timeslots"] = 1
+        un_slotted_env_args["simulate_residuals"] = False
+    # ------------------------------------------------------------ #
+
+    # -------------------- Arrival Matrix --------------------- #
+
+    # packets = list(np.arange(slotted_env_args['min_flow_demand'] / 10,
+    #                          slotted_env_args['max_flow_demand'] / 10 + slotted_env_args['delta'] / 10,
+    #                          slotted_env_args['delta'] / 2))
+    # arrival_matrix = np.random.choice(packets, size=(slotted_env_args["Tot_num_of_timeslots"], slotted_env_args["num_flows"]))
+
+    # ---------------------------------------------------------- #
+
     # ------------------ Create envs ------------------------------------------ #
 
     slotted_env = generate_slotted_env(**slotted_env_args)
@@ -228,51 +259,99 @@ if __name__ == "__main__":
 
     # ------------------------------------------------------------------------------------------------ #
 
+    # ------------------------------------------------------------------------- #
+    save_arguments = False
+    # --------------- Save function arguments For Analysis -------------------- #
+    if save_arguments:
+        base_path = r"C:\Users\beaviv\Ran_DIAMOND_Plots\slotted_vs_unslotted\random_topologies"
+        subfolder_name = f"{slotted_env.num_nodes}_Nodes_{slotted_env.num_edges // 2}_Edges"
+        timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")  # Add timestamp
+        subfolder_path = os.path.join(base_path, subfolder_name, f"{timestamp}_{slotted_env.num_flows}_Flows")
+        # Ensure the directory exists
+        os.makedirs(subfolder_path, exist_ok=True)
+        # Full file path
+        file_path_slotted = os.path.join(subfolder_path, "generate_slotted_env_args.json")
+        save_arguments_to_file(filename=file_path_slotted, args=slotted_env_args)
+
+    # ------------------------------------------------------------------------- #
+
     if save_arguments:
         slotted_env.plot_raw_graph(save_path=os.path.join(subfolder_path, "graph.png"))
-    else:
-        slotted_env.plot_raw_graph()
+
+    # slotted_env.plot_raw_graph()
 
     slotted_diamond = SlottedDIAMOND(grrl_model_path=MODEL_PATH)
 
-    arrival_matrix = np.random.randint(100, 200, size=(4, len(slotted_env.flows)))
-
     # --------------------------------------------- Run ---------------------------------------- #
     diamond_paths, rl_actions, Tot_rates_slotted = slotted_diamond(slotted_env,
-                                                                   grrl_data=True,
-                                                                   use_nb3r=False,
-                                                                   arrival_matrix=arrival_matrix)
+                                                                   grrl_data=True
+                                                                   )
 
-    manual_decisions = rl_actions[:slotted_env.original_num_flows]
+    # manual_decisions = rl_actions[:slotted_env.original_num_flows]
 
-    diamond_paths_raz, _, Tot_rates_unslotted = slotted_diamond(un_slotted_env,
+    diamond_paths_unslotted, _, Tot_rates_unslotted = slotted_diamond(un_slotted_env,
                                                                  grrl_data=True,
-                                                                 use_nb3r=False,
-                                                                 arrival_matrix=arrival_matrix,
-                                                                 manual_actions=manual_decisions)
+                                                                 use_nb3r=False
+                                                                      )  #manual_actions=manual_decisions)
 
     # -------------------------------------------------------------------------------------------- #
 
     # plot_slotted_vs_not_slotted_graph(mean_rate_over_all_timesteps, mean_rate_over_all_timesteps_raz)
 
     # plot rates
-    time_axis = list(range(len(Tot_rates_slotted)))
+    time_axis_in_resulotion = [i * slotted_env.Simulation_Time_Resolution for i in range(1, len(Tot_rates_slotted)+1)] # This time axis is a samples of each Simulation_Time_Resolution
+    # we want to avarge rates so that we have time axis sampled in seconds (this way spike due to the residual will be smoothed)
+    slot_duration = int(slotted_env.slot_duration * slotted_env.Simulation_Time_Resolution)
+    time_axis_in_seconds = [i for i in range(1, slot_duration * slotted_env.Tot_num_of_timeslots + 1)]
+
+    interpolator_slotted = interp1d(time_axis_in_resulotion, Tot_rates_slotted, kind='linear')
+    Tot_rates_slotted_interpolated = interpolator_slotted(time_axis_in_seconds)
+
+    interpolator_unslotted = interp1d(time_axis_in_resulotion, Tot_rates_unslotted, kind='linear')
+    Tot_rates_unslotted_interpolated = interpolator_unslotted(time_axis_in_seconds)
+
     plt.figure()
-    plt.plot(time_axis[:], Tot_rates_slotted[:], linestyle='-', color='b', label='Slotted Avg Rate [Avg over all flows]')
-    plt.plot(time_axis[:], Tot_rates_unslotted[:], linestyle='-', color='r', label='UnSlotted Avg Rate [Avg over all flows]')
+    plt.plot(time_axis_in_seconds, Tot_rates_slotted_interpolated, linestyle='-', color='b', label='Slotted Avg Rate')
+    try:
+        nan_index = np.where(np.isnan(Tot_rates_slotted_interpolated))[0][0]
+    except IndexError:
+        nan_index = time_axis_in_seconds[-1]
+    plt.axvline(x=nan_index, color='b', linestyle='--', label='Slotted flows are done')
+
+    plt.plot(time_axis_in_seconds, Tot_rates_unslotted_interpolated, linestyle='-', color='r', label='UnSlotted Avg Rate')
+    try:
+        nan_index = np.where(np.isnan(Tot_rates_unslotted_interpolated))[0][0]
+    except IndexError:
+        nan_index = time_axis_in_seconds[-1]
+    plt.axvline(x=nan_index, color='r', linestyle='--', label='UnSlotted flows are done')
+
     # Add labels and title
-    plt.xlabel('Time (mili seconds)')
-    plt.ylabel('Average Rate [Kbps]')
+    plt.xlabel('Time (seconds)')
+    plt.ylabel('Average Rate [bps]')
     plt.title('Average Rates Over Time')
-    plt.legend()
+    plt.legend(loc='best', prop={'size': 8})
     plt.grid(True)
 
     # Show the plot
     if save_arguments:
         plt.savefig(os.path.join(subfolder_path,'average_rates_over_time.png'))
-    else:
-        plt.show()
+    plt.show()
+
     print('finished')
+
+'''
+timing guide:
+working with resolution of seconds: 
+each time step is a second, if BW is in Hertz then capcaity is in bps, than the rate is in bps and time axis is in seconds
+
+working with resolution of miliseconds: 
+each time step is a milisecond, if BW is in Hertz need to divide BW with *1e3, then capcaity is in bps, than the rate is in bps and time axis is in miliseconds
+
+working with resolution of micro seoconds: 
+each time step is a microsecond, if BW is i Hertz need to devide it by *1e6 then capcaity is in bps, than the rate is in bps and time axis is in microseconds
+
+'''
+
 
 ''' 
 Guide for AVIV:

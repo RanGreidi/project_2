@@ -4,6 +4,7 @@ import networkx as nx
 import os
 import random
 import json
+from datetime import datetime
 
 def init_seed(seed):
     os.environ['PYTHONHASHSEED'] = str(seed)
@@ -187,11 +188,13 @@ def calc_transmission_rate(link_mac):
     #     return trans
     return np.min(trans, axis=0)
 
-def generate_random_graph(n, e, seed=None):
+
+def generate_random_graph(n, e, max_position=1,  seed=None):
     """
     generate random graph in [0,1]^2 contains of n nodes
     :param n: number of nodes in the graph
-    :param n: number of edges in the graph
+    :param e: number of edges in the graph
+    :param max_position: positions = np.random.uniform(low=0, high=max_position, size=(n, 2))
     :return: nx.Graph
     """
 
@@ -203,7 +206,7 @@ def generate_random_graph(n, e, seed=None):
     adjacency = np.zeros((n, n))
     # sample nodes positions in [0,1]^2
     # Todo: my change. if we want more interference should be closer
-    positions = np.random.uniform(low=0, high=0.1, size=(n, 2))  # np.random.uniform(low=0, high=1, size=(n, 2))
+    positions = np.random.uniform(low=0, high=max_position, size=(n, 2))  # np.random.uniform(low=0, high=1, size=(n, 2))
 
     # connect nodes via path to make sure the graph is connected
     for i in range(n-1):
@@ -325,8 +328,8 @@ def shortest_path(G, s, d):
     return nx.shortest_path(G, source=s, target=d, weight='weight', method='dijkstra')
 
 
-def plot_graph(graph,graph_pos, labels,residual_label, total_time_slots,table_data):
-    column_labels = ["Flow", "Rate"]
+def plot_graph(graph,graph_pos, labels,residual_label, total_time_slots, table_data, Simulation_Time_Resolution, slot_num):
+    column_labels = ["Flow", "Rate[bps]"]
 
     # plot
     plt.figure()
@@ -341,9 +344,21 @@ def plot_graph(graph,graph_pos, labels,residual_label, total_time_slots,table_da
     # draw residual
     nx.draw_networkx_edge_labels(graph, graph_pos, edge_labels=residual_label, font_color='blue', font_size=2.5, label_pos=0.7)
 
-    comment = f"Time step [SEC]: {total_time_slots}"
+    comment = f"Time step [SEC]: {total_time_slots*Simulation_Time_Resolution}"
     plt.text(0.5, -0.1, comment, ha="center", va="center", transform=plt.gca().transAxes, fontsize=7)
-    plt.savefig("graph.png", dpi=300)
+    # TODO: My adding, save figures to specified folder for video creation
+    # -------------------------------------------------------------------- #
+    base_path = r"C:\Users\beaviv\Ran_DIAMOND_Plots\slotted_vs_unslotted\random_topologies\graph_images"
+    subfolder_name = f"{graph.number_of_nodes}_Nodes_{graph.number_of_edges // 2}_Edges"
+    timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")  # Add timestamp
+    subfolder_path = os.path.join(base_path, subfolder_name)
+    # Ensure the directory exists
+    os.makedirs(subfolder_path, exist_ok=True)
+    # Full file path
+    file_path = os.path.join(subfolder_path, f"slot_num_{slot_num}_timestep_in_timeslot_{total_time_slots}_graph.png")
+
+    # -------------------------------------------------------------------- #
+    plt.savefig(file_path, dpi=300)
     plt.close()
 
     return

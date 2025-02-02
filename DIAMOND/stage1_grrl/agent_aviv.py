@@ -162,13 +162,14 @@ class SlottedGRRL:
                 state, r = env.step(action)
                 reward += r
 
+            # Todo: update flows inside slotted_graph_power not here
+            # self.update_flows(env=env, timeslot=timeslot, arrival_matrix=arrival_matrix)
+
             state,SlotRates_AvgOverFlows = env.end_of_slot_update(state)
             Tot_rates += (SlotRates_AvgOverFlows)
             if env.original_num_flows != env.num_flows:
                 print(f'{env.original_num_flows - env.num_flows} / {env.original_num_flows} Finished at timeslot {timeslot}')
             print(f'Finished Timeslot {timeslot+1}/{Tot_num_of_timeslots}')
-            # self.update_flows(env=env, timeslot=timeslot, arrival_matrix=arrival_matrix)
-            # Todo: needs to update state for next GNN decision
 
         return actions, paths, reward, Tot_rates
 

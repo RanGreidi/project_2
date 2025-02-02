@@ -147,10 +147,13 @@ def generate_slotted_env(num_nodes=10,
                          seed=37,
                          graph_mode='random',
                          render_mode=True,
+                         Simulation_Time_Resolution=1e2,
                          slot_duration=60,  # [SEC]
                          Tot_num_of_timeslots=60,  # [Minutes]
                          simulate_residuals=False,
                          given_flows=None,
+                         max_position=1,
+                         arrival_matrix=None,
                          **kwargs):
 
     # assert graph_mode.lower() in ['random', 'nsfnet', 'geant']
@@ -158,7 +161,7 @@ def generate_slotted_env(num_nodes=10,
 
     # 1. create graph
     if graph_mode == 'random':
-        adjacency, positions = generate_random_graph(n=num_nodes, e=num_edges, seed=seed)
+        adjacency, positions = generate_random_graph(n=num_nodes, e=num_edges, max_position=max_position, seed=seed)
     elif graph_mode == 'nsfnet':
         adjacency, positions = create_nsfnet_graph()
         num_nodes = 14
@@ -203,7 +206,8 @@ def generate_slotted_env(num_nodes=10,
     # 3. generate env instance
     # capacity_matrix = np.random.randint(low=min_capacity, high=max_capacity + 1, size=(num_nodes, num_nodes))
     np.random.seed(seed)
-    capacity_matrix = np.random.randint(low=min_capacity, high=max_capacity + 1, size=adjacency.shape)
+    capacity_matrix = np.random.randint(low=min_capacity, high=max_capacity + 1, size=adjacency.shape) * Simulation_Time_Resolution
+    # capacity_matrix = np.random.uniform(low=min_capacity, high=max_capacity, size=adjacency.shape) * Simulation_Time_Resolution
 
     # interference matrix
     # No use un slotted_graph_env_power with interference_matrix
@@ -218,9 +222,11 @@ def generate_slotted_env(num_nodes=10,
                                        reward_balance=reward_balance,
                                        seed=seed,
                                        render_mode=render_mode,
-                                       slot_duration=slot_duration,  # [SEC]
+                                       slot_duration=int(slot_duration / Simulation_Time_Resolution),  # [SEC]
+                                       Simulation_Time_Resolution=Simulation_Time_Resolution,
                                        Tot_num_of_timeslots=Tot_num_of_timeslots,  # [Minutes]
                                        simulate_residuals=simulate_residuals,
+                                       arrival_matrix=arrival_matrix,
                                        **kwargs)
 
     return slotted_env
