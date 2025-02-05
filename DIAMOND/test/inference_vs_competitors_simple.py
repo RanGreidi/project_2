@@ -111,7 +111,7 @@ if __name__ == "__main__":
                                         direction = 'minimize',
                                         slot_duration = int(slot_duration / Simulation_Time_Resolution),          # [in SEC ]
                                         Tot_num_of_timeslots = Tot_num_of_timeslots,         # [num of time slots]
-                                        render_mode = True,
+                                        render_mode = False,
                                         trx_power_mode='gain',
                                         channel_gain = 1,
                                         # channel_manual_gain = [100,200,3,400,500,600],
@@ -154,7 +154,10 @@ if __name__ == "__main__":
 
     plt.figure()
     plt.plot(time_axis_in_seconds, Tot_rates_sloted_interpolated, linestyle='-', color='b', label='Slotted Avg Rate [Avg over all flows]')
-    nan_index = np.where(np.isnan(Tot_rates_sloted_interpolated))[0][0]
+    if np.isnan(Tot_rates_sloted_interpolated).any():
+        nan_index = np.where(np.isnan(Tot_rates_sloted_interpolated))[0][0]
+    else:
+        nan_index = len(Tot_rates_sloted_interpolated)
     plt.axvline(x=nan_index, color='b', linestyle='--', label='Slotted flows are done')
 
     plt.plot(time_axis_in_seconds, Tot_rates_Unsloted_interpolated, linestyle='-', color='r', label='UnSlotted Avg Rate [Avg over all flows]')
