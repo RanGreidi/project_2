@@ -5,6 +5,9 @@ import os
 import random
 import json
 from datetime import datetime
+import cv2
+import os
+from natsort import natsorted
 
 def init_seed(seed):
     os.environ['PYTHONHASHSEED'] = str(seed)
@@ -328,18 +331,18 @@ def shortest_path(G, s, d):
     return nx.shortest_path(G, source=s, target=d, weight='weight', method='dijkstra')
 
 
-def plot_graph(graph,graph_pos, labels,residual_label, total_time_slots, table_data, Simulation_Time_Resolution, slot_num):
+def plot_graph(graph,graph_pos, labels,residual_label, total_time_slots, table_data, Simulation_Time_Resolution, print_index):
     column_labels = ["Flow", "Rate[bps]"]
 
     # plot
-    plt.figure()
+    plt.figure()  # figsize=(10, 8) Adjust size as needed
     table = plt.table(cellText=table_data, colLabels=column_labels, loc='bottom', cellLoc='center', bbox=[0, 0, 0.2, 0.1])
     # Set the font size for each cell in the table
     for key, cell in table.get_celld().items():
         cell.set_fontsize(5)  # Adjust the font size as needed
-    nx.draw_networkx(graph, graph_pos, with_labels=True, node_color="tab:blue")
+    nx.draw_networkx(graph, graph_pos, with_labels=True, node_color="tab:blue")   # node_size=50
 
-    nx.draw_networkx_edge_labels(graph, graph_pos, edge_labels=labels, font_color='red', font_size=2.5, label_pos=0.3)
+    nx.draw_networkx_edge_labels(graph, graph_pos, edge_labels=labels, font_color='red', font_size=2.5, label_pos=0.3)  # font_size=2.5
 
     # draw residual
     nx.draw_networkx_edge_labels(graph, graph_pos, edge_labels=residual_label, font_color='blue', font_size=2.5, label_pos=0.7)
@@ -348,14 +351,14 @@ def plot_graph(graph,graph_pos, labels,residual_label, total_time_slots, table_d
     plt.text(0.5, -0.1, comment, ha="center", va="center", transform=plt.gca().transAxes, fontsize=7)
     # TODO: My adding, save figures to specified folder for video creation
     # -------------------------------------------------------------------- #
-    base_path = r"C:\Users\beaviv\Ran_DIAMOND_Plots\slotted_vs_unslotted\random_topologies\graph_images"
-    subfolder_name = f"{graph.number_of_nodes}_Nodes_{graph.number_of_edges // 2}_Edges"
+    base_path = r"C:\Users\beaviv\Ran_DIAMOND_Plots\slotted_vs_unslotted\costume_topologies\graph_images"
+    subfolder_name = f"{graph.number_of_nodes()}_Nodes_{graph.number_of_edges() // 2}_Edges"
     timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")  # Add timestamp
-    subfolder_path = os.path.join(base_path, subfolder_name)
+    subfolder_path = os.path.join(base_path, subfolder_name, "un_slotted")  # , "un_slotted"
     # Ensure the directory exists
     os.makedirs(subfolder_path, exist_ok=True)
     # Full file path
-    file_path = os.path.join(subfolder_path, f"slot_num_{slot_num}_timestep_in_timeslot_{total_time_slots}_graph.png")
+    file_path = os.path.join(subfolder_path, f"print_index_{print_index}_timestep_in_timeslot_{total_time_slots}_graph.png")
 
     # -------------------------------------------------------------------- #
     plt.savefig(file_path, dpi=300)
@@ -400,3 +403,47 @@ def load_arguments_from_file(filename):
     """
     with open(filename, 'r') as file:
         return json.load(file)
+
+
+def create_video_from_images(image_folder, output_video_path, fps=1, file_extension="png"):
+    """
+    Create a video from a sequence of images in a specified folder.
+
+    :param image_folder: Path to the folder containing images.
+    :param output_video_path: Path where the output video file will be saved.
+    :param fps: Frames per second (default: 10).
+    :param file_extension: Extension of the images (default: "png").
+    """
+    # Get all image filenames with the specified extension
+    images = [img for img in os.listdir(image_folder) if img.endswith(f".{file_extension}")]
+
+    # Sort images in natural order (e.g., 1.png, 2.png, ..., 10.png instead of 1.png, 10.png, 2.png)
+    images = natsorted(images)[:]
+
+    if not images:
+        print("No images found in the specified folder.")
+        return
+
+    # Read the first image to get the width and height
+    first_image_path = os.path.join(image_folder, images[0])
+    frame = cv2.imread(first_image_path)
+    height, width, layers = frame.shape
+
+    # Define the codec and create the VideoWriter object
+    fourcc = cv2.VideoWriter_fourcc(*'mp4v')  # Codec for .mp4 format
+    video = cv2.VideoWriter(output_video_path, fourcc, fps, (width, height))
+
+    # Iterate through images and add to video
+    for image in images:
+        img_path = os.path.join(image_folder, image)
+        frame = cv2.imread(img_path)
+
+        if frame is None:
+            print(f"Warning: Could not read image {img_path}, skipping...")
+            continue
+
+        video.write(frame)
+
+    # Release the video writer
+    video.release()
+    print(f"Video saved at: {output_video_path}")

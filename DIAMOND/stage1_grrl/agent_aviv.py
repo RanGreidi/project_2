@@ -140,7 +140,8 @@ class SlottedGRRL:
         :return: action indices, paths and rewards
         """
         actions = []
-        paths = [[] for _ in range(env.num_flows)]
+        # paths = [[] for _ in range(env.num_flows)]
+        paths = [[] for _ in range(env.Tot_num_of_timeslots)]
         state = env.reset()
         reward = 0
         Tot_num_of_timeslots = env.Tot_num_of_timeslots
@@ -152,24 +153,23 @@ class SlottedGRRL:
 
             for step in range(env.num_flows):
                 if manual_actions:
-                    action = manual_actions[step]  # action = [step, a]
+                    action = manual_actions[step]  # action = [step, a] # Todo: not correct if needs to use this line more than once
                 else:
-                    a = self._select_action(state, env.possible_actions[step])
+                    a = self._select_action(state, env.possible_actions[step])  # Todo: not correct, possible_actions[step] doesnt match the correct flow when some finished
                     action = [step, a]
 
                 actions.append(action)
-                paths[step].append(env.possible_actions[action[0]][action[1]])
+                paths[timeslot].append(env.possible_actions[action[0]][action[1]])  # Todo, this is not correct!!!, possible_actions is always a list of length original_num_flows, will add paths to flows even if finished
                 state, r = env.step(action)
                 reward += r
 
             # Todo: update flows inside slotted_graph_power not here
             # self.update_flows(env=env, timeslot=timeslot, arrival_matrix=arrival_matrix)
-
             state,SlotRates_AvgOverFlows = env.end_of_slot_update(state)
             Tot_rates += (SlotRates_AvgOverFlows)
             if env.original_num_flows != env.num_flows:
                 print(f'{env.original_num_flows - env.num_flows} / {env.original_num_flows} Finished at timeslot {timeslot}')
-            print(f'Finished Timeslot {timeslot+1}/{Tot_num_of_timeslots}')
+            print(f'Finished Timeslot {timeslot+1}/{Tot_num_of_timeslots}\n')
 
         return actions, paths, reward, Tot_rates
 

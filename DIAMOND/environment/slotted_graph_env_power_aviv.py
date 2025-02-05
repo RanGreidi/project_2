@@ -110,6 +110,8 @@ class SlottedGraphEnvPower:
 
         # Todo: My adding, arrival_matrix
         self.arrival_matrix = arrival_matrix
+        self.alive_flow_indices = list(np.arange(self.original_num_flows))
+        self.print_index = 0  # For saving images if render mode is true
 
     def __create_graph(self):
         """
@@ -205,7 +207,7 @@ class SlottedGraphEnvPower:
         #             if (u,v) in label_dict:
         #                 label_dict[(u,v)] += (f"\n Total channel Bandwidth: {bandwidth[u,v]}")
 
-        plot_graph(self.graph, self.graph_pos, label_dict, residual_dict, total_time_slots,table_data,self.Simulation_Time_Resolution, slot_num=self.slot_num)
+        plot_graph(self.graph, self.graph_pos, label_dict, residual_dict, total_time_slots, table_data,self.Simulation_Time_Resolution, print_index=self.print_index)
 
     def gen_edge_data(self):
         self.eids = dict()
@@ -584,6 +586,7 @@ class SlottedGraphEnvPower:
         # This part converts the entring flows into the first active_link list in the time slot #
         if self.flows:
             self.allocated.append(action)
+            # Todo: This is not correct!! possible_actions is always a list of length num_original_flows so if some flows finished flow and path will not be attached correctly
             if not eval_path:
                 allocated_paths = [self.possible_actions[a[0]][a[1]] for a in
                                    sorted(self.allocated, key=lambda x: x[0])]
@@ -620,14 +623,18 @@ class SlottedGraphEnvPower:
         metadata = []
         if self.render_mode:
             self.show_graph(active_links, self.total_time_stemp_in_single_slot, 0, self.total_time_stemp_in_single_slot)
+            self.print_index += 1  # for image saving
+
         while True:
             # transmit single hop for all flows
             if self.total_time_stemp_in_single_slot < self.slot_duration:
                 active_links, hop_metadata = self._transmit_singe_timestep(active_links, self.total_time_stemp_in_single_slot)
 
-                if self.render_mode:
+                # Todo: My adding, plot changing only when all flows in action
+                if self.render_mode and len(self.allocated) == len(self.flows):
                     plot_rate = 1 if len(self.allocated) == len(self.flows) else 0
                     self.show_graph(active_links, self.total_time_stemp_in_single_slot, plot_rate, self.total_time_stemp_in_single_slot)
+                    self.print_index += 1  # For image saving
 
                 metadata.append(hop_metadata)
                 self.total_time_stemp_in_single_slot += 1
@@ -694,6 +701,7 @@ class SlottedGraphEnvPower:
 
             # TODO: My adding, inserting incoming packets
             # else:
+            #     self.alive_flow_indices.remove(flow_idx)
             #     _2flows = dict(source=a['source'],
             #                    destination=a['destination'],
             #                    packets=self.arrival_matrix[self.slot_num, flow_idx],
@@ -921,6 +929,11 @@ class SlottedGraphEnvPower:
         # self.residual_flows  = []
         self.routing_metrics = dict(rate=dict(rate_per_flow=np.full([self.num_flows,self.slot_duration],np.inf).astype(np.float64)),
                                     delay=dict(end_to_end_delay_per_flow=np.zeros(self.num_flows)))
+
+        # Todo: My adding, need to restart possible actions between steps
+        self.possible_actions = [[] for _ in range(len(self.flows))]
+        self.__calc_possible_actions()
+
         observation = self.__get_observation()
 
         # There is am option to output the residuals from previous time slot (prev_residuals)
