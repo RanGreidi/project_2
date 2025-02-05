@@ -8,7 +8,7 @@ import numpy as np
 from pprint import pprint
 from collections import Counter
 import warnings
-from environment.utils import get_k_paths, one_link_transmission, plot_graph, init_seed
+from environment.utils import * #get_k_paths, one_link_transmission, plot_graph, init_seed
 from names_generator import generate_name
 
 # import torch
@@ -408,7 +408,10 @@ class SlottedGraphEnvPower:
             
 
             # share link's resource
-            remaining_packets = one_link_transmission(capacity, a['packets'])  # packets remained at transmit for the next time-step over (u, v)
+            c = calc_indevidual_minimum_capacity(self,a,action_dict,self.current_link_capacity)  # c is a list of minmum capacity for each flow (in their oreder)
+            remaining_packets = one_link_transmission(c, a['packets'])                  # remaining packets is a list of remining packets for each flow (in their oreder)
+
+            # remaining_packets = one_link_transmission(capacity, a['packets'])  # packets remained at transmit for the next time-step over (u, v)
             advanced_packets = [p-r for p, r in zip(a['packets'], remaining_packets)]  # packets to transmit over (v, w)
 
             # flows advancing to the next hop
@@ -589,7 +592,7 @@ class SlottedGraphEnvPower:
 
         self.total_time_stemp_in_single_slot = 0
         metadata = []
-        if self.render_mode: 
+        if self.render_mode:
             self.show_graph(active_links, self.total_time_stemp_in_single_slot, 0 ,self.total_time_stemp_in_single_slot)                   
     
         while True:
@@ -597,7 +600,7 @@ class SlottedGraphEnvPower:
             if self.total_time_stemp_in_single_slot < self.slot_duration: 
                 active_links, hop_metadata = self._transmit_singe_timestep(active_links, self.total_time_stemp_in_single_slot)
                 
-                if self.render_mode: 
+                if self.render_mode and len(self.allocated) == len(self.flows): # plot rate only when all flows are allocated
                     plot_rate = 1 if len(self.allocated) == len(self.flows) else 0
                     self.show_graph(active_links, self.total_time_stemp_in_single_slot, plot_rate ,self.total_time_stemp_in_single_slot)
                 

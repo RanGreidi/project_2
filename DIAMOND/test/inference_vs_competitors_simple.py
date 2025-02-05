@@ -26,9 +26,9 @@ if __name__ == "__main__":
     reward_weights = dict(rate_weight=0.5, delay_weight=0, interference_weight=0, capacity_reduction_weight=0)
 
     # ------------------------------------------------------------------------
-    Simulation_Time_Resolution = 1e-2       # miliseconds (i.e. each time step is a milisecond - this is the duration of each time step in [SEC])
+    Simulation_Time_Resolution = 1e-1       # miliseconds (i.e. each time step is a milisecond - this is the duration of each time step in [SEC])
     BW_value_in_Hertz = 1e6                   # wanted BW in Hertz
-    slot_duration = 8                     # [SEC] 
+    slot_duration = 15                     # [SEC] 
     Tot_num_of_timeslots = 3               # [num of time slots]
     #------------------------------------------------------------------------
 
@@ -111,7 +111,7 @@ if __name__ == "__main__":
                                         direction = 'minimize',
                                         slot_duration = int(slot_duration / Simulation_Time_Resolution),          # [in SEC ]
                                         Tot_num_of_timeslots = Tot_num_of_timeslots,         # [num of time slots]
-                                        render_mode = False,
+                                        render_mode = True,
                                         trx_power_mode='gain',
                                         channel_gain = 1,
                                         # channel_manual_gain = [100,200,3,400,500,600],

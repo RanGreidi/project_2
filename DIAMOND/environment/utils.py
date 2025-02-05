@@ -130,7 +130,7 @@ def get_k_paths(G: nx.Graph,
 
     return k_sp
 
-def one_link_transmission(c, packets):
+def one_link_transmission_old(c, packets):
     """one transmission on channel with capacity c for flows with packets packets
     @param c: link's capacity
     @param packets: list of flows load (packets)
@@ -156,6 +156,65 @@ def one_link_transmission(c, packets):
             r -= rem
         i += 1
     return new_packs
+
+def one_link_transmission(c_list, packets):
+
+    # one transmission on channel where each flow has its own mimimum capacity that is determined by the list of capcities recived from calc_indevidual_minimum_capacity function
+    # c is now a list
+    
+    # if sum(packets) <= c:
+    #     return [0] * len(packets)
+
+    new_packs = []
+    for p,c in zip(packets,c_list):
+        q = c 
+        r = 0         # c % count
+        new_packs.append(p - min(p, q))
+        if p > 0:
+            r += q - min(p, q)
+    i = 0
+    while r > 0 and i < len(new_packs):
+        if new_packs[i] > 0:
+            rem = min(r, new_packs[i])
+            new_packs[i] -= rem
+            r -= rem
+        i += 1
+    return new_packs
+
+
+def calc_indevidual_minimum_capacity(self,a,action_dict,current_link_capacity):
+    """
+    this function goes over all links in the flow path and calculates the minimum capacity for each flow
+    it takes into consideration that the link is shared by multiple flows
+    @param capacity_matrix: link's capacity matrix
+    @param packets: list of flows load (packets)
+    Output: a list of minimum capacity for each flow in the action (a in the loop)
+    """
+
+    # go over all actions in action_dict
+    # look for the minimum capacity for each flow in a (the current action)
+    # return a list of capcacites for the specific link 
+
+    c = [np.inf for _ in range(len(a['flows_idxs']))]
+    i=0
+    for flow_in_current_link in a['flows_idxs']: # for each link in the flow path
+        flow_idx_in_current_link = flow_in_current_link[0]
+        minumum_capacity = c[i]
+        for b in action_dict.values(): # for each link that flow_in_current_link is in the action_dict
+            if flow_in_current_link in b['flows_idxs']: # if the flow is in the link
+                count = len(b['packets']) - len([p for p in b['packets'] if p == 0]) # counts how many transmit on the same current link
+                q = current_link_capacity[self.eids[b['link']]] / count # c // count
+                if  q < minumum_capacity:
+                    minumum_capacity = q # the bottle nech of the flow
+                    
+        c[i] = minumum_capacity
+        i+=1
+
+
+
+
+    return c
+    # return None
 
 def link_queue_history_using_mac_protocol(c, packets):
     """
