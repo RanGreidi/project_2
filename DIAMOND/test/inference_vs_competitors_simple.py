@@ -26,10 +26,10 @@ if __name__ == "__main__":
     reward_weights = dict(rate_weight=0.5, delay_weight=0, interference_weight=0, capacity_reduction_weight=0)
 
     # ------------------------------------------------------------------------
-    Simulation_Time_Resolution = 1e-1       # miliseconds (i.e. each time step is a milisecond - this is the duration of each time step in [SEC])
+    Simulation_Time_Resolution = 1e-2       # miliseconds (i.e. each time step is a milisecond - this is the duration of each time step in [SEC])
     BW_value_in_Hertz = 1e6                   # wanted BW in Hertz
-    slot_duration = 60                     # [SEC] 
-    Tot_num_of_timeslots = 150               # [num of time slots]
+    slot_duration = 8                     # [SEC] 
+    Tot_num_of_timeslots = 3               # [num of time slots]
     #------------------------------------------------------------------------
 
     # # number of nodes
@@ -68,13 +68,13 @@ if __name__ == "__main__":
                   [0, 0, 0, 0, 0, 1, 0, 1, 0]])
 
     
-    # P = [(0.0, 0), (0.0, 0.01), (0.0, 0.02),
-    #      (0.1, 0), (0.1, 0.01), (0.1, 0.02),
-    #      (0.2, 0), (0.2, 0.01), (0.2, 0.02)]
+    P = [(0.0, 0), (0.0, 0.01), (0.0, 0.02),
+         (0.1, 0), (0.1, 0.01), (0.1, 0.02),
+         (0.2, 0), (0.2, 0.01), (0.2, 0.02)]
    
-    P = [(0, 0), (0, 10), (0, 20),
-         (10, 0), (10, 10), (10, 20),
-         (20, 0), (20, 10), (20, 20)]
+    # P = [(0, 0), (0, 10), (0, 20),
+    #      (10, 0), (10, 10), (10, 20),
+    #      (20, 0), (20, 10), (20, 20)]
     
     # BW matrix
     C = BW_value_in_Hertz * np.ones((N, N)) * Simulation_Time_Resolution 
@@ -82,22 +82,24 @@ if __name__ == "__main__":
 
 
     # number of paths to choose from
-    action_size = 10                      #search space limitaions?
+    action_size = 20                      #search space limitaions?
 
     # flow demands in KiloByte
-    # F = [
-    #     {"source": 0, "destination": 8, "packets": 1000    , "time_constrain": 10 , 'flow_idx': 0 }  ]  
-    
     F = [
-        {"source": 0, "destination": 8, "packets": 1000    *1e6, "time_constrain": 10 , 'flow_idx': 0 },
-        {"source": 0, "destination": 7, "packets": 1000    *1e6, "time_constrain": 10, 'flow_idx': 1},         #Packets [in Bits]
-        {"source": 0, "destination": 6, "packets": 500  *1e6, "time_constrain": 10, 'flow_idx': 2},         #Packets [in Bits]
-        {"source": 0, "destination": 5, "packets": 1000 *1e6, "time_constrain": 10, 'flow_idx': 3},
-        {"source": 0, "destination": 4, "packets": 700  *1e6, "time_constrain": 10 , 'flow_idx': 4 },
-        {"source": 0, "destination": 3, "packets": 300  *1e6, "time_constrain": 10, 'flow_idx': 5},         #Packets [in Bits]
-        {"source": 0, "destination": 2, "packets": 150  *1e6, "time_constrain": 10, 'flow_idx': 6},         #Packets [in Bits]
-        {"source": 0, "destination": 1, "packets": 50   *1e6, "time_constrain": 10, 'flow_idx': 7}
+        {"source": 0, "destination": 8, "packets": 10  *1e5    , "time_constrain": 10 , 'flow_idx': 0 },
+        {"source": 0, "destination": 7, "packets": 100 *1e5    , "time_constrain": 10, 'flow_idx': 1},         #Packets [in Bits]  
     ]
+
+    # F = [
+    #     {"source": 0, "destination": 8, "packets": 1000    *1e6, "time_constrain": 10 , 'flow_idx': 0 },
+    #     {"source": 0, "destination": 7, "packets": 3000    *1e6, "time_constrain": 10, 'flow_idx': 1},         #Packets [in Bits]
+    #     {"source": 0, "destination": 6, "packets": 500  *1e6, "time_constrain": 10, 'flow_idx': 2},         #Packets [in Bits]
+    #     {"source": 0, "destination": 5, "packets": 200 *1e6, "time_constrain": 10, 'flow_idx': 3},
+    #     {"source": 0, "destination": 4, "packets": 50  *1e6, "time_constrain": 10 , 'flow_idx': 4 },
+    #     {"source": 0, "destination": 3, "packets": 10  *1e6, "time_constrain": 10, 'flow_idx': 5},         #Packets [in Bits]
+    #     {"source": 0, "destination": 2, "packets": 30  *1e6, "time_constrain": 10, 'flow_idx': 6},         #Packets [in Bits]
+    #     {"source": 0, "destination": 1, "packets": 40   *1e6, "time_constrain": 10, 'flow_idx': 7}
+    # ]
 
     slotted_env = SlottedGraphEnvPower( adjacency_matrix=A,
                                         bandwidth_matrix=C,
@@ -156,7 +158,10 @@ if __name__ == "__main__":
     plt.axvline(x=nan_index, color='b', linestyle='--', label='Slotted flows are done')
 
     plt.plot(time_axis_in_seconds, Tot_rates_Unsloted_interpolated, linestyle='-', color='r', label='UnSlotted Avg Rate [Avg over all flows]')
-    nan_index = np.where(np.isnan(Tot_rates_Unsloted_interpolated))[0][0]
+    if np.isnan(Tot_rates_Unsloted_interpolated).any():
+        nan_index = np.where(np.isnan(Tot_rates_Unsloted_interpolated))[0][0]
+    else:
+        nan_index = len(Tot_rates_Unsloted_interpolated)
     plt.axvline(x=nan_index, color='r', linestyle='--', label='UnSlotted flows are done')
 
     # Add labels and title

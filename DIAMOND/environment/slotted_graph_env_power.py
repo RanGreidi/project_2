@@ -904,6 +904,10 @@ class SlottedGraphEnvPower:
         # self.residual_flows  = []
         self.routing_metrics = dict(rate=dict(rate_per_flow=np.full([self.num_flows,self.slot_duration],np.inf).astype(np.float64)),
                                     delay=dict(end_to_end_delay_per_flow=np.zeros(self.num_flows)))
+        
+        self.possible_actions = [[] for _ in range(len(self.flows))]
+        self.__calc_possible_actions()
+        
         observation = self.__get_observation()
 
         # There is am option to output the residuals from previous time slot (prev_residuals)
