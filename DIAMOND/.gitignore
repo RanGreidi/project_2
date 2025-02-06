@@ -8,4 +8,8 @@ __pycache__/
 
 results
 results/*
-
+*.jpg
+*.jpeg
+*.png
+*.gif
+*.tiff

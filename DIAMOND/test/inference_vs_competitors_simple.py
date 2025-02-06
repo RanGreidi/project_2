@@ -174,7 +174,7 @@ if __name__ == "__main__":
     plt.legend()
 
     # Show the plot
-    plt.savefig('average_rates_over_time.png')
+    plt.savefig('DIAMOND/result_average_rates_over_time.png')
 
 
 '''
