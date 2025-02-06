@@ -9,7 +9,7 @@ from pprint import pprint
 from collections import Counter
 
 import warnings
-from environment.utils import get_k_paths, one_link_transmission, plot_graph, init_seed
+from environment.utils import *  # get_k_paths, one_link_transmission, plot_graph, init_seed
 from names_generator import generate_name
 
 
@@ -425,8 +425,9 @@ class SlottedGraphEnvPower:
             metadata['interference'].append(self.current_link_interference[self.eids[a['link']]])
 
             # share link's resource
-            remaining_packets = one_link_transmission(capacity, a[
-                'packets'])  # packets remained at transmit for the next time-step over (u, v)
+            c = calc_indevidual_minimum_capacity(self, a, action_dict, self.current_link_capacity)  # c is a list of minmum capacity for each flow (in their oreder)
+            remaining_packets = one_link_transmission(c, a['packets'])  # remaining packets is a list of remining packets for each flow (in their oreder)
+            # remaining_packets = one_link_transmission(capacity, a['packets'])  # packets remained at transmit for the next time-step over (u, v)
             advanced_packets = [p - r for p, r in
                                 zip(a['packets'], remaining_packets)]  # packets to transmit over (v, w)
 

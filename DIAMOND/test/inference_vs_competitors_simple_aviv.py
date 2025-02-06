@@ -34,10 +34,10 @@ if __name__ == "__main__":
     MODEL_PATH = os.path.join("DIAMOND", "pretrained", "model_20221113_212726_480.pt")
     reward_weights = dict(rate_weight=0.5, delay_weight=0, interference_weight=0, capacity_reduction_weight=0)
     # ------------------------------------------------------------------------
-    Simulation_Time_Resolution = 1e-2  # 1e-2  # miliseconds (i.e. each time step is a milisecond - this is the duration of each time step in [SEC])
+    Simulation_Time_Resolution = 1e-1  # 1e-2  # miliseconds (i.e. each time step is a milisecond - this is the duration of each time step in [SEC])
     BW_value_in_Hertz = 1e6  # 1e6                   # wanted BW in Hertz
-    slot_duration = 60  # 8 [SEC] 60
-    Tot_num_of_timeslots = 120  # 3 60  # [num of time slots]
+    slot_duration = 15  # 8 [SEC] 60
+    Tot_num_of_timeslots = 3  # 3 60  # [num of time slots]
     # ------------------------------------------------------------------------
 
     #  number of nodes
@@ -111,16 +111,16 @@ if __name__ == "__main__":
     #     {"source": 0, "destination": 7, "packets": 100 * 1e5, "time_constrain": 10, 'flow_idx': 1},
     # ]
 
-    F = [
-    {"source": 0, "destination": 8, "packets": 900 * 1e6, "time_constrain": 10, 'flow_idx': 0},         # {"source": 0, "destination": 8, "packets": 900 * 1e6, "time_constrain": 10, 'flow_idx': 0}
-    {"source": 0, "destination": 7, "packets": 600 * 1e6, "time_constrain": 10, 'flow_idx': 1},         #Packets [in Bits]   {"source": 0, "destination": 7, "packets": 600 * 1e6, "time_constrain": 10, 'flow_idx': 1}
-    {"source": 0, "destination": 6, "packets": 400 * 1e6, "time_constrain": 10, 'flow_idx': 2},         #Packets [in Bits] {"source": 0, "destination": 6, "packets": 400 * 1e6, "time_constrain": 10, 'flow_idx': 2}
-    {"source": 0, "destination": 5, "packets": 200 * 1e6, "time_constrain": 10, 'flow_idx': 3},
-    {"source": 0, "destination": 4, "packets": 50 * 1e6, "time_constrain": 10, 'flow_idx': 4},  #     {"source": 0, "destination": 4, "packets": 50 * 1e6, "time_constrain": 10, 'flow_idx': 4},
-    {"source": 0, "destination": 3, "packets": 10 * 1e6, "time_constrain": 10, 'flow_idx': 5},         #Packets [in Bits]     {"source": 0, "destination": 3, "packets": 10 * 1e6, "time_constrain": 10, 'flow_idx': 5},
-    {"source": 0, "destination": 2, "packets": 30 * 1e6, "time_constrain": 10, 'flow_idx': 6},         #Packets [in Bits]
-    {"source": 0, "destination": 1, "packets": 40 * 1e6, "time_constrain": 10, 'flow_idx': 7}
-    ]
+    # F = [
+    # {"source": 0, "destination": 8, "packets": 900 * 1e6, "time_constrain": 10, 'flow_idx': 0},         # {"source": 0, "destination": 8, "packets": 900 * 1e6, "time_constrain": 10, 'flow_idx': 0}
+    # {"source": 0, "destination": 7, "packets": 600 * 1e6, "time_constrain": 10, 'flow_idx': 1},         #Packets [in Bits]   {"source": 0, "destination": 7, "packets": 600 * 1e6, "time_constrain": 10, 'flow_idx': 1}
+    # {"source": 0, "destination": 6, "packets": 400 * 1e6, "time_constrain": 10, 'flow_idx': 2},         #Packets [in Bits] {"source": 0, "destination": 6, "packets": 400 * 1e6, "time_constrain": 10, 'flow_idx': 2}
+    # {"source": 0, "destination": 5, "packets": 200 * 1e6, "time_constrain": 10, 'flow_idx': 3},
+    # {"source": 0, "destination": 4, "packets": 50 * 1e6, "time_constrain": 10, 'flow_idx': 4},  #     {"source": 0, "destination": 4, "packets": 50 * 1e6, "time_constrain": 10, 'flow_idx': 4},
+    # {"source": 0, "destination": 3, "packets": 10 * 1e6, "time_constrain": 10, 'flow_idx': 5},         #Packets [in Bits]     {"source": 0, "destination": 3, "packets": 10 * 1e6, "time_constrain": 10, 'flow_idx': 5},
+    # {"source": 0, "destination": 2, "packets": 30 * 1e6, "time_constrain": 10, 'flow_idx': 6},         #Packets [in Bits]
+    # {"source": 0, "destination": 1, "packets": 40 * 1e6, "time_constrain": 10, 'flow_idx': 7}
+    # ]
 
     # ------------------------------------------------------------------------
 
@@ -251,13 +251,13 @@ if __name__ == "__main__":
     load_arguments = False
     # ---------------- Loading args For Observation -------------- #
     if load_arguments:
-        subfolder_path = r'C:\Users\beaviv\Ran_DIAMOND_Plots\slotted_vs_unslotted\random_topologies\10_Nodes_15_Edges\20250129_110641_10_Flows'
+        subfolder_path = r'C:\Users\beaviv\Ran_DIAMOND_Plots\slotted_vs_unslotted\random_topologies\10_Nodes_10_Edges\20250125_143157_5_Flows'
         slotted_file_path = os.path.join(subfolder_path, "generate_slotted_env_args.json")
         slotted_env_args = load_arguments_from_file(filename=slotted_file_path)['args']
 
         slotted_env_args["simulate_residuals"] = True
         slotted_env_args["render_mode"] = False
-        slotted_env_args["Simulation_Time_Resolution"] = 1e-4
+        # slotted_env_args["Simulation_Time_Resolution"] = 1e-4
         # slotted_env_args["slot_duration"] = 60
         # slotted_env_args["max_position"] = 1.0
         # slotted_env_args["min_capacity"] = 10 * 1e6
@@ -306,7 +306,7 @@ if __name__ == "__main__":
     if save_arguments:
         slotted_env.plot_raw_graph(save_path=os.path.join(subfolder_path, "graph.png"))
 
-    # slotted_env.plot_raw_graph()
+    slotted_env.plot_raw_graph()
 
     slotted_diamond = SlottedDIAMOND(grrl_model_path=MODEL_PATH)
 
