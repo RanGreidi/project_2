@@ -649,6 +649,7 @@ class SlottedGraphEnvPower:
         ii=0
         for a in self.flows:
             flow_idx = a['flow_idx']
+            constant_flow_name = a['constant_flow_name']
             # next we looks only at links that is not residual and belong to flow a (there can be only 2)
             list_of_links_4flow_a = [d for d in sorted_active_links if d.get('flow_idx') == flow_idx and not d.get('residual_name')]
             _2flows = next((d for d in list_of_links_4flow_a if d.get('link')[0] == a['source']), {})
@@ -663,7 +664,8 @@ class SlottedGraphEnvPower:
                             packets=_2flows['packets'],
                             time_constrain=10,
                             flow_idx=ii,
-                            path=a['path'])
+                            path=a['path'],
+                            constant_flow_name=constant_flow_name)
                 ii+=1
                 list_of_2flows.append(_2flows)
             # else: #flows finishes, append 0 packets

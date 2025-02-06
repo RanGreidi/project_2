@@ -30,6 +30,34 @@ if __name__ == "__main__":
     BW_value_in_Hertz = 1e6                   # wanted BW in Hertz
     slot_duration = 15                     # [SEC] 
     Tot_num_of_timeslots = 60               # [num of time slots]
+
+    #------------------------------------------------------------------------
+
+    # Traffic model
+    Trafic_model_flow0 = Traffic_Probability_Model()
+    Trafic_model_flow1 = Traffic_Probability_Model()
+    Trafic_model_flow2 = Traffic_Probability_Model()
+    Trafic_model_flow3 = Traffic_Probability_Model()
+    Trafic_model_flow4 = Traffic_Probability_Model()
+    Trafic_model_flow5 = Traffic_Probability_Model()
+    Trafic_model_flow6 = Traffic_Probability_Model()
+    Trafic_model_flow7 = Traffic_Probability_Model()        
+    Trafic_model_list = [Trafic_model_flow1 , Trafic_model_flow2 , Trafic_model_flow3 , Trafic_model_flow4 , Trafic_model_flow5 , Trafic_model_flow6 , Trafic_model_flow7]
+
+    # constant_flow_name must start with 0 and be an int!
+    F = [
+        {"source": 0, "destination": 8, "packets": 10   *1e5, "time_constrain": 10, 'flow_idx':  0 , 'constant_flow_name': 0},
+        {"source": 0, "destination": 7, "packets": 100  *1e5, "time_constrain": 10, 'flow_idx':  1 , 'constant_flow_name': 1},         #Packets [in Bits]
+        {"source": 0, "destination": 6, "packets": 500  *1e6, "time_constrain": 10, 'flow_idx':  2 , 'constant_flow_name': 2},         #Packets [in Bits]
+        {"source": 0, "destination": 5, "packets": 200  *1e6, "time_constrain": 10, 'flow_idx':  3 , 'constant_flow_name': 3},
+        {"source": 0, "destination": 4, "packets": 50   *1e6, "time_constrain": 10, 'flow_idx':  4 , 'constant_flow_name': 4},
+        {"source": 0, "destination": 3, "packets": 10   *1e6, "time_constrain": 10, 'flow_idx':  5 , 'constant_flow_name': 5},         #Packets [in Bits]
+        {"source": 0, "destination": 2, "packets": 30   *1e6, "time_constrain": 10, 'flow_idx':  6 , 'constant_flow_name': 6},         #Packets [in Bits]
+        {"source": 0, "destination": 1, "packets": 40   *1e6, "time_constrain": 10, 'flow_idx':  7 , 'constant_flow_name': 7}
+    ]
+
+    F = F[0:2]
+    Trafic_model_list = Trafic_model_list[0:2]
     #------------------------------------------------------------------------
 
     # # number of nodes
@@ -54,6 +82,7 @@ if __name__ == "__main__":
     #                     [1, 1, 1, 1]])
     #------------------------------------------------------------------------
    
+    # # number of nodes
     N = 9
 
     # Adjacency matrix
@@ -80,31 +109,11 @@ if __name__ == "__main__":
     C = BW_value_in_Hertz * np.ones((N, N)) * Simulation_Time_Resolution 
     #------------------------------------------------------------------------
 
-
     # number of paths to choose from
     action_size = 20                      #search space limitaions?
 
-    # flow demands in KiloByte
-    F = [
-        {"source": 0, "destination": 8, "packets": 10  *1e5    , "time_constrain": 10 , 'flow_idx': 0 },
-        {"source": 0, "destination": 7, "packets": 100 *1e5    , "time_constrain": 10, 'flow_idx': 1},         #Packets [in Bits]  
-    ]
-
-    Trafic_model_flow1 = Traffic_Probability_Model()
-    Trafic_model_flow2 = Traffic_Probability_Model()
-    Trafic_model_list = [Trafic_model_flow1 , Trafic_model_flow2]
-
-    # F = [
-    #     {"source": 0, "destination": 8, "packets": 1000    *1e6, "time_constrain": 10 , 'flow_idx': 0 },
-    #     {"source": 0, "destination": 7, "packets": 3000    *1e6, "time_constrain": 10, 'flow_idx': 1},         #Packets [in Bits]
-    #     {"source": 0, "destination": 6, "packets": 500  *1e6, "time_constrain": 10, 'flow_idx': 2},         #Packets [in Bits]
-    #     {"source": 0, "destination": 5, "packets": 200 *1e6, "time_constrain": 10, 'flow_idx': 3},
-    #     {"source": 0, "destination": 4, "packets": 50  *1e6, "time_constrain": 10 , 'flow_idx': 4 },
-    #     {"source": 0, "destination": 3, "packets": 10  *1e6, "time_constrain": 10, 'flow_idx': 5},         #Packets [in Bits]
-    #     {"source": 0, "destination": 2, "packets": 30  *1e6, "time_constrain": 10, 'flow_idx': 6},         #Packets [in Bits]
-    #     {"source": 0, "destination": 1, "packets": 40   *1e6, "time_constrain": 10, 'flow_idx': 7}
-    # ]
-
+    #------------------------------------------------------------------------
+    # create environment
     slotted_env = SlottedGraphEnvPower( adjacency_matrix=A,
                                         bandwidth_matrix=C,
                                         flows=F,
@@ -113,8 +122,8 @@ if __name__ == "__main__":
                                         reward_weights=reward_weights,
                                         telescopic_reward = True,
                                         direction = 'minimize',
-                                        slot_duration = int(slot_duration / Simulation_Time_Resolution),          # [in SEC ]
-                                        Tot_num_of_timeslots = Tot_num_of_timeslots,         # [num of time slots]
+                                        slot_duration = int(slot_duration / Simulation_Time_Resolution),            # [in SEC ]
+                                        Tot_num_of_timeslots = Tot_num_of_timeslots,                                # [num of time slots]
                                         render_mode = False,
                                         trx_power_mode='gain',
                                         channel_gain = 1,
@@ -123,21 +132,21 @@ if __name__ == "__main__":
                                         Simulation_Time_Resolution = Simulation_Time_Resolution)
 
     UNslotted_env = SlottedGraphEnvPower( adjacency_matrix=A,
-                                        bandwidth_matrix=C,
-                                        flows=F,
-                                        node_positions=P,
-                                        k=action_size,
-                                        reward_weights=reward_weights,
-                                        telescopic_reward = False,
-                                        direction = 'minimize',
-                                        slot_duration = int( (slot_duration*Tot_num_of_timeslots) / Simulation_Time_Resolution),          # [in SEC]
-                                        Tot_num_of_timeslots = 1, # [in Minutes]
-                                        render_mode = False,
-                                        trx_power_mode='gain',
-                                        channel_gain = 1,
-                                        # channel_manual_gain = [100,200,3,400,500,600],
-                                        simualte_residauls = False,
-                                        Simulation_Time_Resolution = Simulation_Time_Resolution)    
+                                          bandwidth_matrix=C,
+                                          flows=F,
+                                          node_positions=P,
+                                          k=action_size,
+                                          reward_weights=reward_weights,
+                                          telescopic_reward = False,
+                                          direction = 'minimize',
+                                          slot_duration = int( (slot_duration*Tot_num_of_timeslots) / Simulation_Time_Resolution),          # [in SEC]
+                                          Tot_num_of_timeslots = 1, # [in Minutes]
+                                          render_mode = False,
+                                          trx_power_mode='gain',
+                                          channel_gain = 1,
+                                          # channel_manual_gain = [100,200,3,400,500,600],
+                                          simualte_residauls = False,
+                                          Simulation_Time_Resolution = Simulation_Time_Resolution)    
     
     slotted_env_real_run = copy.deepcopy(slotted_env)
     UNslotted_env_real_run = copy.deepcopy(UNslotted_env)

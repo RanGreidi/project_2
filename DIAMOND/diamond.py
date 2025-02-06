@@ -156,16 +156,32 @@ class SlottedDIAMOND:
         This function adds new flows that want to join the network to the given flows dict. The function generates the flows according to the probabilty model that we have.
         '''
         # iterate over all flows, sample from the probabilty distribution (is this flow stays empty? is the flow demand increas? or decrease?)
-        for idx,flow in enumerate(flows_dict):
-            # ignore residuals
-            if 'residual_name' not in flow:
-                flow_idx = flow['flow_idx']
-                current_demand = flow['packets']
+        for idx in range(len(Traffic_Probability_Model_list)):
+            
+            # check if the flow is in the graph aleady, otherwise add it as a new flow
+            matching_flow = None
+            for d in flows_dict:
+                if d.get('constant_flow_name') == idx:
+                    matching_flow = d
+                    break           
+            
+            
+            if (matching_flow is not None) and ('residual_name' not in matching_flow): # ignore residuals 
+                current_demand = matching_flow['packets']
                 # sample from the distribution
                 new_demand = Traffic_Probability_Model_list[idx].step()
                 # modify its demand
-                flows_dict[flow_idx]['packets'] = new_demand + current_demand
-
+                matching_flow['packets'] = new_demand + current_demand
+            else: # add the flow to the dict
+                    # new_flow =  dict(source=,
+                    #     destination=,
+                    #     packets=,
+                    #     time_constrain=10,
+                    #     flow_idx=,
+                    #     path=,
+                    #     constant_flow_name=)
+                    None
+        
         # modifiy the flow_dct
         new_flows_dict = flows_dict
 
