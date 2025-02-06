@@ -1,5 +1,7 @@
 import numpy as np
 from matplotlib import pyplot as plt
+import matplotlib.pyplot as plt
+from scipy.interpolate import interp1d
 import networkx as nx
 import os
 import random
@@ -403,3 +405,45 @@ def extract_first_letters(s):
     words = s.split('_')
     first_letters = ''.join(word[0] for word in words if word)
     return first_letters
+
+def wrap_and_save_Rate_plots(name, 
+                            Simulation_Time_Resolution,
+                            slot_duration,
+                            Tot_num_of_timeslots,
+                            Tot_rates_sloted,
+                            Tot_rates_UNslotted):
+    # plot rates
+    time_axis_in_resulotion = [i * Simulation_Time_Resolution for i in range(1,len(Tot_rates_sloted)+1)] # This time axis is a samples of each Simulation_Time_Resolution
+    # we want to avarge rates so that we have time axis sampled in seconds (this way spike due to the residual will be smoothed)
+    time_axis_in_seconds = [i  for i in range(1,slot_duration*Tot_num_of_timeslots+1)]
+
+    interpolator_sloted = interp1d(time_axis_in_resulotion, Tot_rates_sloted, kind='linear')
+    Tot_rates_sloted_interpolated = interpolator_sloted(time_axis_in_seconds)
+
+    interpolator_unsloted = interp1d(time_axis_in_resulotion, Tot_rates_UNslotted, kind='linear')
+    Tot_rates_Unsloted_interpolated = interpolator_unsloted(time_axis_in_seconds)
+
+    plt.figure()
+    plt.plot(time_axis_in_seconds, Tot_rates_sloted_interpolated, linestyle='-', color='b', label='Slotted Avg Rate [Avg over all flows]')
+    if np.isnan(Tot_rates_sloted_interpolated).any():
+        nan_index = np.where(np.isnan(Tot_rates_sloted_interpolated))[0][0]
+    else:
+        nan_index = len(Tot_rates_sloted_interpolated)
+    plt.axvline(x=nan_index, color='b', linestyle='--', label='Slotted flows are done')
+
+    plt.plot(time_axis_in_seconds, Tot_rates_Unsloted_interpolated, linestyle='-', color='r', label='UnSlotted Avg Rate [Avg over all flows]')
+    if np.isnan(Tot_rates_Unsloted_interpolated).any():
+        nan_index = np.where(np.isnan(Tot_rates_Unsloted_interpolated))[0][0]
+    else:
+        nan_index = len(Tot_rates_Unsloted_interpolated)
+    plt.axvline(x=nan_index, color='r', linestyle='--', label='UnSlotted flows are done')
+
+    # Add labels and title
+    plt.xlabel('Time (seconds)')
+    plt.ylabel('Average Rate [bps]')
+    plt.title(name)
+    plt.legend()
+
+    # Show the plot
+    plt.savefig('DIAMOND/' + name + '.png')
+    return

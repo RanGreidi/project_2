@@ -3,9 +3,7 @@ import random
 import os
 from datetime import datetime
 import shutil
-import matplotlib.pyplot as plt
-from scipy.interpolate import interp1d
-
+import copy
 
 import sys
 sys.path.insert(0, 'DIAMOND')
@@ -14,6 +12,8 @@ from environment import SlottedGraphEnvPower
 from diamond import DIAMOND, SlottedDIAMOND
 from environment import generate_env
 from competitors import OSPF, RandomBaseline, DQN_GNN, DIAR, IACR
+from environment.Traffic_Probability_Model import Traffic_Probability_Model
+from environment.utils import wrap_and_save_Rate_plots
 
 SEED = 123
 random.seed(SEED)
@@ -29,7 +29,7 @@ if __name__ == "__main__":
     Simulation_Time_Resolution = 1e-1       # miliseconds (i.e. each time step is a milisecond - this is the duration of each time step in [SEC])
     BW_value_in_Hertz = 1e6                   # wanted BW in Hertz
     slot_duration = 15                     # [SEC] 
-    Tot_num_of_timeslots = 3               # [num of time slots]
+    Tot_num_of_timeslots = 60               # [num of time slots]
     #------------------------------------------------------------------------
 
     # # number of nodes
@@ -90,6 +90,10 @@ if __name__ == "__main__":
         {"source": 0, "destination": 7, "packets": 100 *1e5    , "time_constrain": 10, 'flow_idx': 1},         #Packets [in Bits]  
     ]
 
+    Trafic_model_flow1 = Traffic_Probability_Model()
+    Trafic_model_flow2 = Traffic_Probability_Model()
+    Trafic_model_list = [Trafic_model_flow1 , Trafic_model_flow2]
+
     # F = [
     #     {"source": 0, "destination": 8, "packets": 1000    *1e6, "time_constrain": 10 , 'flow_idx': 0 },
     #     {"source": 0, "destination": 7, "packets": 3000    *1e6, "time_constrain": 10, 'flow_idx': 1},         #Packets [in Bits]
@@ -134,49 +138,36 @@ if __name__ == "__main__":
                                         # channel_manual_gain = [100,200,3,400,500,600],
                                         simualte_residauls = False,
                                         Simulation_Time_Resolution = Simulation_Time_Resolution)    
-
-    slotted_diamond = SlottedDIAMOND(grrl_model_path=MODEL_PATH)
     
-    Tot_rates_sloted = slotted_diamond(slotted_env, grrl_data=False)
-    Tot_rates_UNslotted = slotted_diamond(UNslotted_env, grrl_data=False)
+    slotted_env_real_run = copy.deepcopy(slotted_env)
+    UNslotted_env_real_run = copy.deepcopy(UNslotted_env)
 
 
-    # plot rates
-    time_axis_in_resulotion = [i * Simulation_Time_Resolution for i in range(1,len(Tot_rates_sloted)+1)] # This time axis is a samples of each Simulation_Time_Resolution
-    # we want to avarge rates so that we have time axis sampled in seconds (this way spike due to the residual will be smoothed)
-    time_axis_in_seconds = [i  for i in range(1,slot_duration*Tot_num_of_timeslots+1)]
+    slotted_diamond = SlottedDIAMOND(grrl_model_path=MODEL_PATH, Traffic_Probability_Model_list = Trafic_model_list)
+    
+    Tot_rates_sloted, action_recipe_slotted = slotted_diamond(slotted_env, grrl_data=False) # get recipe from here
+    Tot_rates_sloted_RealRun = slotted_diamond.real_run(slotted_env_real_run, action_recipe_slotted) # run packets in the real world
+    
+    Tot_rates_UNslotted, action_recipe_Unslotted = slotted_diamond(UNslotted_env, grrl_data=False) # get recipe from here
+    Tot_rates_UNsloted_RealRun = slotted_diamond.real_run(UNslotted_env_real_run, action_recipe_Unslotted) # run packets in the real world
+ 
 
-    interpolator_sloted = interp1d(time_axis_in_resulotion, Tot_rates_sloted, kind='linear')
-    Tot_rates_sloted_interpolated = interpolator_sloted(time_axis_in_seconds)
+ ## ----------------------  plots ---------------------- ##
+    wrap_and_save_Rate_plots('Average_rates_over_time',
+                            Simulation_Time_Resolution,
+                            slot_duration,
+                            Tot_num_of_timeslots,
+                            Tot_rates_sloted,
+                            Tot_rates_UNslotted                            
+                             )
 
-    interpolator_unsloted = interp1d(time_axis_in_resulotion, Tot_rates_UNslotted, kind='linear')
-    Tot_rates_Unsloted_interpolated = interpolator_unsloted(time_axis_in_seconds)
-
-    plt.figure()
-    plt.plot(time_axis_in_seconds, Tot_rates_sloted_interpolated, linestyle='-', color='b', label='Slotted Avg Rate [Avg over all flows]')
-    if np.isnan(Tot_rates_sloted_interpolated).any():
-        nan_index = np.where(np.isnan(Tot_rates_sloted_interpolated))[0][0]
-    else:
-        nan_index = len(Tot_rates_sloted_interpolated)
-    plt.axvline(x=nan_index, color='b', linestyle='--', label='Slotted flows are done')
-
-    plt.plot(time_axis_in_seconds, Tot_rates_Unsloted_interpolated, linestyle='-', color='r', label='UnSlotted Avg Rate [Avg over all flows]')
-    if np.isnan(Tot_rates_Unsloted_interpolated).any():
-        nan_index = np.where(np.isnan(Tot_rates_Unsloted_interpolated))[0][0]
-    else:
-        nan_index = len(Tot_rates_Unsloted_interpolated)
-    plt.axvline(x=nan_index, color='r', linestyle='--', label='UnSlotted flows are done')
-
-    # Add labels and title
-    plt.xlabel('Time (seconds)')
-    plt.ylabel('Average Rate [bps]')
-    plt.title('Average Rates Over Time')
-    plt.legend()
-
-    # Show the plot
-    plt.savefig('DIAMOND/result_average_rates_over_time.png')
-
-
+    wrap_and_save_Rate_plots('RealRun_Average_rates_over_time',
+                            Simulation_Time_Resolution,
+                            slot_duration,
+                            Tot_num_of_timeslots,
+                            Tot_rates_sloted_RealRun,
+                            Tot_rates_UNsloted_RealRun                            
+                             )
 '''
 timing guide:
 working with resolution of seconds: 

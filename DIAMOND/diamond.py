@@ -1,9 +1,10 @@
 import numpy as np
 import os
-
+import sys
+sys.path.insert(0, 'DIAMOND')
 from stage1_grrl import GRRL, SlottedGRRL
 from stage2_nb3r import nb3r
-
+from environment.Traffic_Probability_Model import Traffic_Probability_Model
 
 class DIAMOND:
     def __init__(self,
@@ -65,23 +66,27 @@ class SlottedDIAMOND:
     def __init__(self,
                  grrl_model_path,
                  nb3r_steps=100,
-                 nb3r_tmpr=10):
+                 nb3r_tmpr=10,
+                 Traffic_Probability_Model_list = []):
+        
         if grrl_model_path is None:
             grrl_model_path = os.path.join(".", "pretrained", "model_20221113_212726_480.pt")
         self.slotted_grrl = SlottedGRRL(path=grrl_model_path)
         self.nb3r_steps = nb3r_steps
         self.nb3r_tmpr = nb3r_tmpr
+        self.Traffic_Probability_Model_list = Traffic_Probability_Model_list
 
     def __call__(self, env, grrl_data=False):
         
         #################### central computer in network computes allocations  #################### 
         # stage 1
         rl_actions, rl_paths, rl_reward, Tot_rates  = self.slotted_grrl.run(env=env)
-        rl_actions.sort(key=lambda x: x[0])
-        rl_actions = [x[1] for x in rl_actions]
+        action_recipe = rl_actions
+        # rl_actions.sort(key=lambda x: x[0])
+        # rl_actions = [x[1] for x in rl_actions]
         rl_delay_data = env.get_delay_data()
         rl_rates_data = env.get_rates_data()
-
+        
         # stage 2
         # self.nb3r_steps = int(env.num_flows * 5)
         # nb3r_action = nb3r(
@@ -106,7 +111,7 @@ class SlottedDIAMOND:
 
         if grrl_data:
             return Tot_rates #routs, rl_rates_data, rl_delay_data
-        return Tot_rates #routs
+        return Tot_rates, action_recipe #routs
 
     def real_run(self,env, actions_recipe = None):
         '''
@@ -114,31 +119,75 @@ class SlottedDIAMOND:
         each time slot, we can simulate the network and get the results according to the recipe. Here we loop on the time slots, and input to the Env all flows 
         according to the receipe (Each time slots, all flows are input to the env).
         '''
-        actions = []
-        paths = []
+        
+        Tot_rates = []        
         state = env.reset()
-
         Tot_num_of_timeslots = env.Tot_num_of_timeslots
-
-        debug_manual_recipe = [[[0,0],[1,3]] for i in range(Tot_num_of_timeslots)] # example of recipe
-
+        
+        print('Simulating Real Run of packets in the real world')
         for slot_indx in range(Tot_num_of_timeslots):
             '''
             This function get the recipe from thre agent, and simulate the actual netwrok after agent provided with the recipe of what
             to alocate each time slot (so essentially, this function is the real run of the network).
             '''
-            self.simualte_real_time_slot(env, debug_manual_recipe[slot_indx]) #self.simualte_real_time_slot(env, actions_recipe[slot_indx])
-            env.end_of_step_update()
+            
+            # Add flows to env according to new flows that ask to join according to reality (the real flows that want to join the network)
+            ''' At some point during Tot_num_of_timeslots a flow can ask to join the network, we have two options
+            1. we predicted that the flow will join the network and we added it to the recipe
+            2. we did not predict that the flow will join the network and we did not add it to the recipe - The flow has to wait for the next time slot
+            If the flow waits, it adds a delay to the flow. 
+            If we predicted that the flow will join the network, we added it to the recipe and the flow will be added to the network.
+            '''
+            new_flows_dict = self.generate_new_flows_dict_according_to_probabilty_model(env.flows, self.Traffic_Probability_Model_list) # Add flows to env according to new flows that ask to join according to reality (the real flows that want to join the network)
+            # env.flows = new_flows_dict
+            # env.num_flows = len(new_flows_dict)
+
+            self.simualte_real_time_slot(env, actions_recipe[slot_indx]) #self.simualte_real_time_slot(env, actions_recipe[slot_indx])
+            _ , SlotRates_AvgOverFlows = env.end_of_slot_update()
+            Tot_rates+=(SlotRates_AvgOverFlows)
+            
             print('Time Slot: ', slot_indx)
         
-        return 
-        
-    def simualte_real_time_slot(self, env, actions):
+        return Tot_rates
+    
+    @staticmethod
+    def generate_new_flows_dict_according_to_probabilty_model(flows_dict,Traffic_Probability_Model_list):
+        ''' 
+        This function adds new flows that want to join the network to the given flows dict. The function generates the flows according to the probabilty model that we have.
+        '''
+        # iterate over all flows, sample from the probabilty distribution (is this flow stays empty? is the flow demand increas? or decrease?)
+        for idx,flow in enumerate(flows_dict):
+            # ignore residuals
+            if 'residual_name' not in flow:
+                flow_idx = flow['flow_idx']
+                current_demand = flow['packets']
+                # sample from the distribution
+                new_demand = Traffic_Probability_Model_list[idx].step()
+                # modify its demand
+                flows_dict[flow_idx]['packets'] = new_demand + current_demand
+
+        # modifiy the flow_dct
+        new_flows_dict = flows_dict
+
+        return new_flows_dict
+    
+    @staticmethod    
+    def simualte_real_time_slot(env, slot_actions_from_recipe):
+        # here actions may not be matched to numb of flows (number of flows can be different from the number of actions due to the probabilty model addition)
+        # if more there are more flows than action, the added flows have to wait for the agnet to open them a rout
+        # if less flows than action, the preditior tought there is an additional flow, but there is not. in this case, route was open unneccesarily
+
+        # Code here for all possible cases
+        #
+        #
+        #
+
         # Input all flows at once and run them in the network
         for flow in range(env.num_flows):
-            action = actions[flow] #action = [step, a]
-            state, r = env.step(action)
-
+            action = slot_actions_from_recipe[flow] #action = [step, a]
+            _, _ = env.step(action)
+        return 
+    
     @staticmethod
     def rates_objective(env, actions):
         env.reset()

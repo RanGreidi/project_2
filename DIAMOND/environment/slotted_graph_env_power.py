@@ -781,7 +781,7 @@ class SlottedGraphEnvPower:
 
     #     return new_state, Avg_Rate_over_flows
 
-    def end_of_slot_update(self,state):
+    def end_of_slot_update(self):
         '''
         this function reset the part in state that is needed to be resets (demands) betwwen each time slot
         and output data for our likings betwwens time slots
