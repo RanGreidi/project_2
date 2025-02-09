@@ -142,17 +142,17 @@ class SlottedGRRL:
         Tot_rates = []
 
         for slot_indx in range(Tot_num_of_timeslots): # as long there is still flows running (determines the num of time_slotes in one episode)
-            slot_action = []
+            slot_actions = []
             for step in range(env.num_flows):
                 a = self._select_action(state, env.possible_actions[step])
                 # action = manual_actions[step]
-                action = [step, a]  #[0,0]
+                action = [step, a] 
                 paths.append(env.possible_actions[action[0]][action[1]])
-                slot_action.append(action)
+                slot_actions.append([action[0], action[0] , env.flows[step]['constant_flow_name']])  # action format: [step , decision , flow_name]
                 state, r = env.step(action)
                 reward += r
             
-            actions.append(slot_action)    
+            actions.append(slot_actions)    
             state,SlotRates_AvgOverFlows = env.end_of_slot_update()
             Tot_rates+=(SlotRates_AvgOverFlows)
         return actions, paths, reward, Tot_rates

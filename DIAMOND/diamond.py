@@ -156,31 +156,35 @@ class SlottedDIAMOND:
         This function adds new flows that want to join the network to the given flows dict. The function generates the flows according to the probabilty model that we have.
         '''
         # iterate over all flows, sample from the probabilty distribution (is this flow stays empty? is the flow demand increas? or decrease?)
-        for idx in range(len(Traffic_Probability_Model_list)):
+        for flow in Traffic_Probability_Model_list:
+            constant_flow_name = flow.constant_flow_name
             
-            # check if the flow is in the graph aleady, otherwise add it as a new flow
+            # iterate to check if the flow is in the graph aleady, otherwise add it as a new flow
             matching_flow = None
             for d in flows_dict:
-                if d.get('constant_flow_name') == idx:
+                if d.get('constant_flow_name') == constant_flow_name:
                     matching_flow = d
                     break           
             
-            
+            # if in the graph
             if (matching_flow is not None) and ('residual_name' not in matching_flow): # ignore residuals 
                 current_demand = matching_flow['packets']
                 # sample from the distribution
-                new_demand = Traffic_Probability_Model_list[idx].step()
+                new_demand = flow.step()
                 # modify its demand
                 matching_flow['packets'] = new_demand + current_demand
-            else: # add the flow to the dict
-                    # new_flow =  dict(source=,
-                    #     destination=,
-                    #     packets=,
-                    #     time_constrain=10,
-                    #     flow_idx=,
-                    #     path=,
-                    #     constant_flow_name=)
-                    None
+            
+            # if not in the graph - Data is taken from the predefined posible flows list (Traffic_Probability_Model_list) from the simple script
+            else: 
+                    new_demand = flow.step()
+                    if new_demand > 0:
+                        new_flow =  dict(source=flow.source,
+                                        destination=flow.destination,
+                                        packets=new_demand,
+                                        time_constrain=10,
+                                        flow_idx=max(d['flow_idx'] for d in flows_dict)+1,
+                                        constant_flow_name=flow.constant_flow_name)
+                        flows_dict.append(new_flow)
         
         # modifiy the flow_dct
         new_flows_dict = flows_dict
@@ -189,19 +193,26 @@ class SlottedDIAMOND:
     
     @staticmethod    
     def simualte_real_time_slot(env, slot_actions_from_recipe):
+        
+        # remiander: slot_actions_from_recipe is a recipe for each step, in the form of: [step_indx , decision , flow_name]
+
         # here actions may not be matched to numb of flows (number of flows can be different from the number of actions due to the probabilty model addition)
         # if more there are more flows than action, the added flows have to wait for the agnet to open them a rout
-        # if less flows than action, the preditior tought there is an additional flow, but there is not. in this case, route was open unneccesarily
+        # if less flows than action, the predictor tought there is an additional flow, but there is not. in this case, route was open unneccesarily
 
-        # Code here for all possible cases
+        # TODO Code here for all possible cases
         #
         #
         #
 
-        # Input all flows at once and run them in the network
+        # Input all flows at once from recipe
+        # for action in slot_actions_from_recipe:
+        #     action = action[0:2] #action is [step, a, flow_name], we need only [step, a]
+        #     env.step(action, real_run=True)
+
         for flow in range(env.num_flows):
-            action = slot_actions_from_recipe[flow] #action = [step, a]
-            _, _ = env.step(action)
+            action = slot_actions_from_recipe[flow] #action = [step, a, flow_name]
+            env.step(action, real_run=True)
         return 
     
     @staticmethod

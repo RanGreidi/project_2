@@ -34,16 +34,18 @@ if __name__ == "__main__":
     #------------------------------------------------------------------------
 
     # Traffic model
-    Trafic_model_flow0 = Traffic_Probability_Model()
-    Trafic_model_flow1 = Traffic_Probability_Model()
-    Trafic_model_flow2 = Traffic_Probability_Model()
-    Trafic_model_flow3 = Traffic_Probability_Model()
-    Trafic_model_flow4 = Traffic_Probability_Model()
-    Trafic_model_flow5 = Traffic_Probability_Model()
-    Trafic_model_flow6 = Traffic_Probability_Model()
-    Trafic_model_flow7 = Traffic_Probability_Model()        
-    Trafic_model_list = [Trafic_model_flow1 , Trafic_model_flow2 , Trafic_model_flow3 , Trafic_model_flow4 , Trafic_model_flow5 , Trafic_model_flow6 , Trafic_model_flow7]
+    Trafic_model_flow0 = Traffic_Probability_Model(source=0 , destination=8 , constant_flow_name=0)
+    Trafic_model_flow1 = Traffic_Probability_Model(source=0 , destination=7 , constant_flow_name=1)
+    Trafic_model_flow2 = Traffic_Probability_Model(source=0 , destination=6 , constant_flow_name=2)
+    Trafic_model_flow3 = Traffic_Probability_Model(source=0 , destination=5 , constant_flow_name=3)
+    Trafic_model_flow4 = Traffic_Probability_Model(source=0 , destination=4 , constant_flow_name=4)
+    Trafic_model_flow5 = Traffic_Probability_Model(source=0 , destination=3 , constant_flow_name=5)
+    Trafic_model_flow6 = Traffic_Probability_Model(source=0 , destination=2 , constant_flow_name=6)
+    Trafic_model_flow7 = Traffic_Probability_Model(source=0 , destination=1 , constant_flow_name=7)        
+    Trafic_model_list = [Trafic_model_flow0 , Trafic_model_flow1 , Trafic_model_flow2 , Trafic_model_flow3 , Trafic_model_flow4 , Trafic_model_flow5 , Trafic_model_flow6 , Trafic_model_flow7]
+    #TODO: Inital demand should be the initial state in the probablity model, if start with 0 packets, then the first state should be 0, else first state should be the first demand
 
+    # Inital flow demand list
     # constant_flow_name must start with 0 and be an int!
     F = [
         {"source": 0, "destination": 8, "packets": 10   *1e5, "time_constrain": 10, 'flow_idx':  0 , 'constant_flow_name': 0},
@@ -57,7 +59,6 @@ if __name__ == "__main__":
     ]
 
     F = F[0:2]
-    Trafic_model_list = Trafic_model_list[0:2]
     #------------------------------------------------------------------------
 
     # # number of nodes

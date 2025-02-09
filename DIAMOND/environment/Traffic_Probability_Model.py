@@ -5,19 +5,23 @@ import sys
 sys.path.insert(0, 'DIAMOND')
 
 class Traffic_Probability_Model:
-    def __init__(self,     transition_matrix_properties = {
-                                    'mice_start_from' : 10,
-                                    'elephent_start_from' : 1000,
+    def __init__(self,
+                source = None,
+                destination = None,
+                constant_flow_name = None,
+                transition_matrix_properties = {
+                            'mice_start_from' : 10,
+                            'elephent_start_from' : 1000,
 
-                                    'p_mice' : 0.05,
-                                    'p_elephent' : 0.05,
-                                    'p_idle' : 0.9,
+                            'p_mice' : 0.05,
+                            'p_elephent' : 0.05,
+                            'p_idle' : 0.9,
 
-                                    'p_finish' : 0.1,
-                                    'p_same' : 0.5,
-                                    'p_minus' : 0.2,
-                                    'p_plus' : 0.2,
-                                    'Num_of_states': 101                           
+                            'p_finish' : 0.1,
+                            'p_same' : 0.5,
+                            'p_minus' : 0.2,
+                            'p_plus' : 0.2,
+                            'Num_of_states': 101                           
     }):
         
         """
@@ -47,7 +51,9 @@ class Traffic_Probability_Model:
 
         self.states = [0] + [i + transition_matrix_properties['mice_start_from'] for i in range(0,int((transition_matrix_properties['Num_of_states']-1)/2))] + [i + transition_matrix_properties['elephent_start_from'] for i in range(0,int((transition_matrix_properties['Num_of_states']-1)/2))]
         self.state = 0
-
+        self.source = source
+        self.destination = destination
+        self.constant_flow_name = constant_flow_name
     def step(self):
         """
         Takes one step in the Markov Chain by transitioning to the next state based on the transition matrix.
