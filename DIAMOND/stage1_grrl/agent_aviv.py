@@ -150,7 +150,7 @@ class SlottedGRRL:
         # manual_actions = [[0, 0], [1, 1]]
 
         for timeslot in range(Tot_num_of_timeslots):  # as long there is still flows running (determines the num of time_slotes in one episode)
-
+            slot_action = []
             for step in range(env.num_flows):
                 if manual_actions:
                     action = manual_actions[step]  # action = [step, a] # Todo: not correct if needs to use this line more than once
@@ -158,14 +158,15 @@ class SlottedGRRL:
                     a = self._select_action(state, env.possible_actions[step])  # Todo: not correct, possible_actions[step] doesnt match the correct flow when some finished
                     action = [step, a]
 
-                actions.append(action)
+                slot_action.append(action)
                 paths[timeslot].append(env.possible_actions[action[0]][action[1]])  # Todo, this is not correct!!!, possible_actions is always a list of length original_num_flows, will add paths to flows even if finished
                 state, r = env.step(action)
                 reward += r
 
             # Todo: update flows inside slotted_graph_power not here
             # self.update_flows(env=env, timeslot=timeslot, arrival_matrix=arrival_matrix)
-            state,SlotRates_AvgOverFlows = env.end_of_slot_update(state)
+            actions.append(slot_action)
+            state,SlotRates_AvgOverFlows = env.end_of_slot_update()
             Tot_rates += (SlotRates_AvgOverFlows)
             if env.original_num_flows != env.num_flows:
                 print(f'{env.original_num_flows - env.num_flows} / {env.original_num_flows} Finished at timeslot {timeslot}')

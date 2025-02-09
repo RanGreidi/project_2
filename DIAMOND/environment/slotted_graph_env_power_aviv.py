@@ -680,6 +680,7 @@ class SlottedGraphEnvPower:
         ii = 0
         for a in self.flows:
             flow_idx = a['flow_idx']
+            constant_flow_name = a['constant_flow_name']
             # next we looks only at links that is not residual and belong to flow a (there can be only 2)
             list_of_links_4flow_a = [d for d in sorted_active_links if
                                      d.get('flow_idx') == flow_idx and not d.get('residual_name')]
@@ -696,7 +697,8 @@ class SlottedGraphEnvPower:
                                packets=_2flows['packets'],   # + self.arrival_matrix[self.slot_num, flow_idx], # Todo: my adding incoming packets
                                time_constrain=10,
                                flow_idx=ii,
-                               path=a['path'])
+                               path=a['path'],
+                               constant_flow_name=constant_flow_name)
                 ii += 1
                 list_of_2flows.append(_2flows)
 
@@ -798,7 +800,7 @@ class SlottedGraphEnvPower:
 
         return reward
 
-    def end_of_slot_update(self, state):
+    def end_of_slot_update(self):
         '''
         this function reset the part in state that is needed to be resets (demands) betwwen each time slot
         and output data for our likings betwwens time slots

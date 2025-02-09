@@ -11,10 +11,10 @@ sys.path.insert(0, 'DIAMOND')
 ##sys.path.insert(0, '/work_space/project2/DIAMOND-master/DIAMOND-master')
 from environment import SlottedGraphEnvPower
 from diamond_aviv import DIAMOND, SlottedDIAMOND
-from environment import generate_env
+from environment.Traffic_Probability_Model import Traffic_Probability_Model
 from environment.data import generate_slotted_env
 # from competitors import OSPF, RandomBaseline, DQN_GNN, DIAR, IACR
-from environment.utils import plot_slotted_vs_not_slotted_graph, save_arguments_to_file, load_arguments_from_file, create_video_from_images
+from environment.utils import plot_slotted_vs_not_slotted_graph, save_arguments_to_file, load_arguments_from_file, create_video_from_images, wrap_and_save_Rate_plots
 
 SEED = 123
 random.seed(SEED)
@@ -36,8 +36,8 @@ if __name__ == "__main__":
     # ------------------------------------------------------------------------
     Simulation_Time_Resolution = 1e-1  # 1e-2  # miliseconds (i.e. each time step is a milisecond - this is the duration of each time step in [SEC])
     BW_value_in_Hertz = 1e6  # 1e6                   # wanted BW in Hertz
-    slot_duration = 15  # 8 [SEC] 60
-    Tot_num_of_timeslots = 3  # 3 60  # [num of time slots]
+    slot_duration = 60 # 8 [SEC] 60
+    Tot_num_of_timeslots = 60  # 3 60  # [num of time slots]
     # ------------------------------------------------------------------------
 
     #  number of nodes
@@ -111,17 +111,31 @@ if __name__ == "__main__":
     #     {"source": 0, "destination": 7, "packets": 100 * 1e5, "time_constrain": 10, 'flow_idx': 1},
     # ]
 
-    # F = [
-    # {"source": 0, "destination": 8, "packets": 900 * 1e6, "time_constrain": 10, 'flow_idx': 0},         # {"source": 0, "destination": 8, "packets": 900 * 1e6, "time_constrain": 10, 'flow_idx': 0}
-    # {"source": 0, "destination": 7, "packets": 600 * 1e6, "time_constrain": 10, 'flow_idx': 1},         #Packets [in Bits]   {"source": 0, "destination": 7, "packets": 600 * 1e6, "time_constrain": 10, 'flow_idx': 1}
-    # {"source": 0, "destination": 6, "packets": 400 * 1e6, "time_constrain": 10, 'flow_idx': 2},         #Packets [in Bits] {"source": 0, "destination": 6, "packets": 400 * 1e6, "time_constrain": 10, 'flow_idx': 2}
-    # {"source": 0, "destination": 5, "packets": 200 * 1e6, "time_constrain": 10, 'flow_idx': 3},
-    # {"source": 0, "destination": 4, "packets": 50 * 1e6, "time_constrain": 10, 'flow_idx': 4},  #     {"source": 0, "destination": 4, "packets": 50 * 1e6, "time_constrain": 10, 'flow_idx': 4},
-    # {"source": 0, "destination": 3, "packets": 10 * 1e6, "time_constrain": 10, 'flow_idx': 5},         #Packets [in Bits]     {"source": 0, "destination": 3, "packets": 10 * 1e6, "time_constrain": 10, 'flow_idx': 5},
-    # {"source": 0, "destination": 2, "packets": 30 * 1e6, "time_constrain": 10, 'flow_idx': 6},         #Packets [in Bits]
-    # {"source": 0, "destination": 1, "packets": 40 * 1e6, "time_constrain": 10, 'flow_idx': 7}
-    # ]
+    # Traffic model
+    Trafic_model_flow0 = Traffic_Probability_Model()
+    Trafic_model_flow1 = Traffic_Probability_Model()
+    Trafic_model_flow2 = Traffic_Probability_Model()
+    Trafic_model_flow3 = Traffic_Probability_Model()
+    Trafic_model_flow4 = Traffic_Probability_Model()
+    Trafic_model_flow5 = Traffic_Probability_Model()
+    Trafic_model_flow6 = Traffic_Probability_Model()
+    Trafic_model_flow7 = Traffic_Probability_Model()
+    Trafic_model_list = [Trafic_model_flow1, Trafic_model_flow2, Trafic_model_flow3, Trafic_model_flow4, Trafic_model_flow5, Trafic_model_flow6, Trafic_model_flow7]
 
+    # constant_flow_name must start with 0 and be an int!
+    F = [
+        {"source": 0, "destination": 8, "packets": 10 * 1e5, "time_constrain": 10, 'flow_idx': 0, 'constant_flow_name': 0},
+        {"source": 0, "destination": 7, "packets": 100 * 1e5, "time_constrain": 10, 'flow_idx': 1, 'constant_flow_name': 1},  # Packets [in Bits]
+        {"source": 0, "destination": 6, "packets": 500 * 1e6, "time_constrain": 10, 'flow_idx': 2, 'constant_flow_name': 2},  # Packets [in Bits]
+        {"source": 0, "destination": 5, "packets": 200 * 1e6, "time_constrain": 10, 'flow_idx': 3, 'constant_flow_name': 3},
+        {"source": 0, "destination": 4, "packets": 50 * 1e6, "time_constrain": 10, 'flow_idx': 4, 'constant_flow_name': 4},
+        {"source": 0, "destination": 3, "packets": 10 * 1e6, "time_constrain": 10, 'flow_idx': 5, 'constant_flow_name': 5},  # Packets [in Bits]
+        {"source": 0, "destination": 2, "packets": 30 * 1e6, "time_constrain": 10, 'flow_idx': 6, 'constant_flow_name': 6},  # Packets [in Bits]
+        {"source": 0, "destination": 1, "packets": 40 * 1e6, "time_constrain": 10, 'flow_idx': 7, 'constant_flow_name': 7}
+        ]
+
+    F = F[0:2]
+    Trafic_model_list = Trafic_model_list[0:2]
     # ------------------------------------------------------------------------
 
     # -------------------------- Aviv Topology ----------------------------------------------
@@ -195,9 +209,9 @@ if __name__ == "__main__":
 
     # Function arguments
     slotted_env_args = {
-        "num_nodes": 10,
-        "num_edges": 17,
-        "num_flows": 10,
+        "num_nodes": 20,
+        "num_edges": 30,
+        "num_flows": 20,
         "min_flow_demand": 10 * 1e6,
         "max_flow_demand": 1000 * 1e6,
         "delta": 1 * 1e6,
@@ -206,7 +220,7 @@ if __name__ == "__main__":
         "max_capacity": 10 * 1e6,
         "direction": "minimize",
         "reward_balance": 0.8,
-        "seed": 424,
+        "seed": 4244,
         "graph_mode": "random",
         "reward_weights": reward_weights,
         "telescopic_reward": True,
@@ -218,13 +232,13 @@ if __name__ == "__main__":
         "channel_gain": 1,
         "simulate_residuals": True,
         "given_flows": None,
-        "max_position": 0.2
+        "max_position": 1.0
     }
 
     un_slotted_env_args = {
-                        "num_nodes": 10,
-                        "num_edges": 17,
-                        "num_flows": 10,
+                        "num_nodes": 20,
+                        "num_edges": 30,
+                        "num_flows": 20,
                         "min_flow_demand": 10 * 1e6,
                         "max_flow_demand": 1000 * 1e6,
                         "delta": 1 * 1e6,
@@ -233,7 +247,7 @@ if __name__ == "__main__":
                         "max_capacity": 10 * 1e6,
                         "direction": "minimize",
                         "reward_balance": 0.8,
-                        "seed": 424,
+                        "seed": 4244,
                         "graph_mode": "random",
                         "reward_weights": reward_weights,
                         "telescopic_reward": True,
@@ -245,13 +259,13 @@ if __name__ == "__main__":
                         "channel_gain": 1,
                         "simulate_residuals": False,
                         "given_flows": None,
-                        "max_position": 0.2
+                        "max_position": 1.
                     }
 
     load_arguments = False
     # ---------------- Loading args For Observation -------------- #
     if load_arguments:
-        subfolder_path = r'C:\Users\beaviv\Ran_DIAMOND_Plots\slotted_vs_unslotted\random_topologies\10_Nodes_10_Edges\20250125_143157_5_Flows'
+        subfolder_path = r'C:\Users\beaviv\Ran_DIAMOND_Plots\slotted_vs_unslotted\random_topologies\10_Nodes_20_Edges\20250206_100037_10_Flows'
         slotted_file_path = os.path.join(subfolder_path, "generate_slotted_env_args.json")
         slotted_env_args = load_arguments_from_file(filename=slotted_file_path)['args']
 
@@ -259,9 +273,11 @@ if __name__ == "__main__":
         slotted_env_args["render_mode"] = False
         # slotted_env_args["Simulation_Time_Resolution"] = 1e-4
         # slotted_env_args["slot_duration"] = 60
-        # slotted_env_args["max_position"] = 1.0
+        # slotted_env_args["Tot_num_of_timeslots"] = 2
+        # slotted_env_args["max_position"] = 0.2
         # slotted_env_args["min_capacity"] = 10 * 1e6
         # slotted_env_args["num_flows"] = 20
+        # slotted_env_args["seed"] = 14235
 
         # ----------------- Fit un slotted args -------------------- #
         un_slotted_env_args = copy.deepcopy(slotted_env_args)
@@ -281,14 +297,14 @@ if __name__ == "__main__":
 
     # ------------------ Create envs ------------------------------------------ #
 
-    # slotted_env = generate_slotted_env(**slotted_env_args)
-    #
-    # un_slotted_env = generate_slotted_env(**un_slotted_env_args)
+    slotted_env = generate_slotted_env(**slotted_env_args)
+
+    un_slotted_env = generate_slotted_env(**un_slotted_env_args)
 
     # ------------------------------------------------------------------------------------------------ #
 
     # ------------------------------------------------------------------------- #
-    save_arguments = False
+    save_arguments = True
     # --------------- Save function arguments For Analysis -------------------- #
     if save_arguments:
         base_path = r"C:\Users\beaviv\Ran_DIAMOND_Plots\slotted_vs_unslotted\random_topologies"
@@ -308,25 +324,50 @@ if __name__ == "__main__":
 
     slotted_env.plot_raw_graph()
 
-    slotted_diamond = SlottedDIAMOND(grrl_model_path=MODEL_PATH)
+    # ---------------------------- Initialize DIAMOND ------------------------- #
+
+    slotted_diamond = SlottedDIAMOND(grrl_model_path=MODEL_PATH, Traffic_Probability_Model_list=Trafic_model_list)
 
     # --------------------------------------------- Run ---------------------------------------- #
-    diamond_paths, rl_actions, Tot_rates_slotted = slotted_diamond(slotted_env,
-                                                                   grrl_data=True
-                                                                   )
+    slotted_env_real_run = copy.deepcopy(slotted_env)
+    un_slotted_env_real_run = copy.deepcopy(un_slotted_env)
 
-    manual_decisions = rl_actions[:slotted_env.original_num_flows]
+    # ---------------------- slotted ---------------- #
+    diamond_paths_slotted, action_recipe_slotted, Tot_rates_slotted = slotted_diamond(slotted_env,
+                                                                              grrl_data=True
+                                                                              )
+    # Tot_rates_slotted_RealRun = slotted_diamond.real_run(slotted_env_real_run, action_recipe_slotted)  # run packets in the real world
 
-    diamond_paths_unslotted, _, Tot_rates_unslotted = slotted_diamond(un_slotted_env,
-                                                                 grrl_data=True,
-                                                                 use_nb3r=False,
-                                                                 manual_actions=manual_decisions)
+    manual_decisions = action_recipe_slotted[0]   # action_recipe_slotted[:slotted_env.original_num_flows]
 
+    # --------------------- un slotted -------------- #
+    diamond_paths_un_slotted, action_recipe_un_slotted, Tot_rates_un_slotted = slotted_diamond(un_slotted_env,
+                                                                                               grrl_data=True,
+                                                                                               manual_actions=manual_decisions)
+    # Tot_rates_un_slotted_RealRun = slotted_diamond.real_run(un_slotted_env_real_run, action_recipe_un_slotted)  # run packets in the real world
+
+    # ------------------------------------------------ #
     # -------------------------------------------------------------------------------------------- #
-
+    # ------------------------------------------------- Plots ------------------------------------------- #
+    # wrap_and_save_Rate_plots('Average_rates_over_time',
+    #                                 Simulation_Time_Resolution,
+    #                                 slot_duration,
+    #                                 Tot_num_of_timeslots,
+    #                                 Tot_rates_slotted,
+    #                                 Tot_rates_un_slotted
+    #                          )
+    #
+    # wrap_and_save_Rate_plots('RealRun_Average_rates_over_time',
+    #                                   Simulation_Time_Resolution,
+    #                                   slot_duration,
+    #                                   Tot_num_of_timeslots,
+    #                                   Tot_rates_slotted_RealRun,
+    #                                   Tot_rates_un_slotted_RealRun
+    #                          )
+    # --------------------------------------------------------------------------------------------------- #
     # plot_slotted_vs_not_slotted_graph(mean_rate_over_all_timesteps, mean_rate_over_all_timesteps_raz)
 
-    # plot rates
+    # # plot rates
     time_axis_in_resulotion = [i * slotted_env.Simulation_Time_Resolution for i in range(1, len(Tot_rates_slotted)+1)] # This time axis is a samples of each Simulation_Time_Resolution
     # we want to avarge rates so that we have time axis sampled in seconds (this way spike due to the residual will be smoothed)    slot_duration = int(slotted_env.slot_duration * slotted_env.Simulation_Time_Resolution)
     time_axis_in_seconds = [i for i in range(1, int(slotted_env.slot_duration * slotted_env.Simulation_Time_Resolution) * slotted_env.Tot_num_of_timeslots + 1)]  # range(1, slot_duration * slotted_env.Tot_num_of_timeslots + 1)
@@ -334,7 +375,7 @@ if __name__ == "__main__":
     interpolator_slotted = interp1d(time_axis_in_resulotion, Tot_rates_slotted, kind='linear')
     Tot_rates_slotted_interpolated = interpolator_slotted(time_axis_in_seconds)
 
-    interpolator_unslotted = interp1d(time_axis_in_resulotion, Tot_rates_unslotted, kind='linear')
+    interpolator_unslotted = interp1d(time_axis_in_resulotion, Tot_rates_un_slotted, kind='linear')
     Tot_rates_unslotted_interpolated = interpolator_unslotted(time_axis_in_seconds)
 
     plt.figure()

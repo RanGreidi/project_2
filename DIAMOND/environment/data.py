@@ -3,6 +3,7 @@ from environment import SlottedGraphEnvPower as SlottedGraphEnvPower
 from environment.utils import *
 import random
 
+
 def _get_random_flows(num_nodes, num_flows, demands=[100], seed=1):
     """
     generates random flows
@@ -14,12 +15,13 @@ def _get_random_flows(num_nodes, num_flows, demands=[100], seed=1):
     """
     random.seed(seed)
     result = []
-    for _ in range(num_flows):
+    for flow_id in range(num_flows):
         src, dst = random.sample(range(num_nodes), 2)
         f = {"source": src,
              "destination": dst,
              "packets": random.choice(demands),
-             "flow_idx": _}
+             "flow_idx": flow_id,
+             'constant_flow_name': flow_id}
 
         result.append(f)
     return result
