@@ -11,7 +11,7 @@ sys.path.insert(0, 'DIAMOND')
 ##sys.path.insert(0, '/work_space/project2/DIAMOND-master/DIAMOND-master')
 from environment import SlottedGraphEnvPower
 from diamond_aviv import DIAMOND, SlottedDIAMOND
-from environment.Traffic_Probability_Model import Traffic_Probability_Model
+from environment.Traffic_Probability_Model import Traffic_Probability_Model, generate_traffic_matrix
 from environment.data import generate_slotted_env
 # from competitors import OSPF, RandomBaseline, DQN_GNN, DIAR, IACR
 from environment.utils import plot_slotted_vs_not_slotted_graph, save_arguments_to_file, load_arguments_from_file, create_video_from_images, wrap_and_save_Rate_plots
@@ -37,7 +37,7 @@ if __name__ == "__main__":
     Simulation_Time_Resolution = 1e-1  # 1e-2  # miliseconds (i.e. each time step is a milisecond - this is the duration of each time step in [SEC])
     BW_value_in_Hertz = 1e6  # 1e6                   # wanted BW in Hertz
     slot_duration = 60 # 8 [SEC] 60
-    Tot_num_of_timeslots = 60  # 3 60  # [num of time slots]
+    Tot_num_of_timeslots = 15  # 3 60  # [num of time slots]
     # ------------------------------------------------------------------------
 
     #  number of nodes
@@ -212,9 +212,9 @@ if __name__ == "__main__":
 
     # Function arguments
     slotted_env_args = {
-        "num_nodes": 50,
-        "num_edges": 70,
-        "num_flows": 25,
+        "num_nodes": 5,
+        "num_edges": 5,
+        "num_flows": 5,
         "min_flow_demand": 10 * 1e6,
         "max_flow_demand": 1000 * 1e6,
         "delta": 1 * 1e6,
@@ -235,13 +235,14 @@ if __name__ == "__main__":
         "channel_gain": 1,
         "simulate_residuals": True,
         "given_flows": None,
-        "max_position": 1.0
+        "max_position": 1.0,
+        "slotted": True
     }
 
     un_slotted_env_args = {
-                        "num_nodes": 50,
-                        "num_edges": 70,
-                        "num_flows": 25,
+                        "num_nodes": 5,
+                        "num_edges": 5,
+                        "num_flows": 5,
                         "min_flow_demand": 10 * 1e6,
                         "max_flow_demand": 1000 * 1e6,
                         "delta": 1 * 1e6,
@@ -262,10 +263,11 @@ if __name__ == "__main__":
                         "channel_gain": 1,
                         "simulate_residuals": False,
                         "given_flows": None,
-                        "max_position": 1.0
+                        "max_position": 1.0,
+                        "slotted": False
                     }
 
-    load_arguments = True
+    load_arguments = False
     # ---------------- Loading args For Observation -------------- #
     if load_arguments:
         subfolder_path = r'C:\Users\beaviv\Ran_DIAMOND_Plots\slotted_vs_unslotted\random_topologies\60_Nodes_70_Edges\20250129_174033_10_Flows'
@@ -291,23 +293,35 @@ if __name__ == "__main__":
 
     # -------------------- Arrival Matrix --------------------- #
 
-    # packets = list(np.arange(slotted_env_args['min_flow_demand'] / 10,
-    #                          slotted_env_args['max_flow_demand'] / 10 + slotted_env_args['delta'] / 10,
-    #                          slotted_env_args['delta'] / 2))
-    # arrival_matrix = np.random.choice(packets, size=(slotted_env_args["Tot_num_of_timeslots"], slotted_env_args["num_flows"]))
+    transition_matrix_properties = {
+                                    'mice_start_from': 10,
+                                    'elephent_start_from': 1000,
+                                    'p_mice': 0.05,
+                                    'p_elephent': 0.05,
+                                    'p_idle': 0.9,
+                                    'p_finish': 0.1,
+                                    'p_same': 0.5,
+                                    'p_minus': 0.2,
+                                    'p_plus': 0.2,
+                                    'Num_of_states': 101
+                                    }
+
+    TM = generate_traffic_matrix(num_flows=slotted_env_args["num_flows"],
+                                 transition_matrix_properties=transition_matrix_properties,
+                                 num_steps=slotted_env_args["Tot_num_of_timeslots"],)
 
     # ---------------------------------------------------------- #
 
     # ------------------ Create envs ------------------------------------------ #
 
-    slotted_env = generate_slotted_env(**slotted_env_args)
+    slotted_env = generate_slotted_env(**slotted_env_args, arrival_matrix=TM)
 
-    un_slotted_env = generate_slotted_env(**un_slotted_env_args)
+    un_slotted_env = generate_slotted_env(**un_slotted_env_args, arrival_matrix=TM)
 
     # ------------------------------------------------------------------------------------------------ #
 
     # ------------------------------------------------------------------------- #
-    save_arguments = True
+    save_arguments = False
     # --------------- Save function arguments For Analysis -------------------- #
     if save_arguments:
         base_path = r"C:\Users\beaviv\Ran_DIAMOND_Plots\slotted_vs_unslotted\random_topologies"

@@ -216,7 +216,7 @@ if __name__ == "__main__":
                                  num_steps=10000)
 
     save_path = r'C:\Users\beaviv\Datasets\Ran_DIAMOND_generated_traffic\generated_traffic_matrix.npy'
-    np.save(save_path, TM)
+    # np.save(save_path, TM)
 
     # mc = Traffic_Probability_Model(transition_matrix_properties)
     #

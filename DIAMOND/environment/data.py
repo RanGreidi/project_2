@@ -155,6 +155,7 @@ def generate_slotted_env(num_nodes=10,
                          simulate_residuals=False,
                          given_flows=None,
                          max_position=1,
+                         slotted=True,
                          arrival_matrix=None,
                          **kwargs):
 
@@ -229,6 +230,7 @@ def generate_slotted_env(num_nodes=10,
                                        Tot_num_of_timeslots=Tot_num_of_timeslots,  # [Minutes]
                                        simulate_residuals=simulate_residuals,
                                        arrival_matrix=arrival_matrix,
+                                       slotted=slotted,
                                        **kwargs)
 
     return slotted_env

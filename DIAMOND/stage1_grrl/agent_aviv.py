@@ -163,9 +163,11 @@ class SlottedGRRL:
                 state, r = env.step(action)
                 reward += r
 
-            # Todo: update flows inside slotted_graph_power not here
-            # self.update_flows(env=env, timeslot=timeslot, arrival_matrix=arrival_matrix)
             actions.append(slot_actions)
+            # Todo: update flows inside slotted_graph_power not here
+            if env.arrival_matrix is not None:
+                self.update_flows(env=env, timeslot=timeslot)
+
             state,SlotRates_AvgOverFlows = env.end_of_slot_update()
             Tot_rates += (SlotRates_AvgOverFlows)
             if env.original_num_flows != env.num_flows:
@@ -174,7 +176,39 @@ class SlottedGRRL:
 
         return actions, paths, reward, Tot_rates
 
-    def update_flows(self, env, timeslot, arrival_matrix):
-        if arrival_matrix is not None:
-            for flow_id, flow in enumerate(env.flows):
-                flow['packets'] += arrival_matrix[timeslot][flow_id]
+    def update_flows(self, env, timeslot):
+
+        alive_flow_indices = [flow['constant_flow_name'] for flow in env.flows]
+        list_of_2flows = []
+        for flow_id in range(env.original_num_flows):
+
+            if flow_id in alive_flow_indices:
+                flow = env.flows[flow_id]
+                flow['packets'] += env.arrival_matrix[timeslot][flow_id]
+                list_of_2flows.append(flow)
+            else:
+                if env.arrival_matrix[timeslot][flow_id] > 0:
+                    flow = env.original_flows[flow_id]
+                    flow['packets'] = env.arrival_matrix[timeslot][flow_id]
+                    list_of_2flows.append(flow)
+
+        env.flows = list_of_2flows
+        env.num_flows = len(env.flows)
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+

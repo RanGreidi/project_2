@@ -36,6 +36,7 @@ class SlottedGraphEnvPower:
                  simulate_residuals=False,
                  Simulation_Time_Resolution=1e-3,
                  arrival_matrix=None,
+                 slotted=True,
                  **kwargs):
 
         # seed
@@ -112,6 +113,9 @@ class SlottedGraphEnvPower:
         self.arrival_matrix = arrival_matrix
         self.alive_flow_indices = list(np.arange(self.original_num_flows))
         self.print_index = 0  # For saving images if render mode is true
+        self.tm_reading_idx = 0
+        self.slotted = slotted
+        self.original_flows = copy.deepcopy(self.flows)
 
     def __create_graph(self):
         """
@@ -639,6 +643,15 @@ class SlottedGraphEnvPower:
 
                 metadata.append(hop_metadata)
                 self.total_time_stemp_in_single_slot += 1
+
+                # Todo: My adding, insert packets here to handle slotted\unslotted problem
+                # if self.total_time_stemp_in_single_slot % self.slot_duration == 0 and len(self.allocated) == len(self.flows):  # insert demand only when all flows in play
+                #     if self.arrival_matrix is not None:
+                #         self.insert_traffic_demand(row_idx=self.tm_reading_idx)
+                #         self.tm_reading_idx += 1
+                #     else:
+                #         pass
+
             else:
                 if len(self.allocated) == len(self.flows):  # if finish all flow at a time slot
                     self.update_flows(active_links, action)
@@ -663,6 +676,11 @@ class SlottedGraphEnvPower:
         #                                 delay=dict(end_to_end_delay_per_flow=np.zeros(self.num_flows)))
 
         return reward
+
+    def insert_traffic_demand(self, row_idx):
+        incoming_demands = self.arrival_matrix[row_idx, :]
+        for flow_id, flow in enumerate(self.flows):
+            flow['packets'] += incoming_demands[flow_id]
 
     def update_flows(self, active_links, action):
         ''' --- update seld.flows and self.residual flows ---
@@ -694,7 +712,9 @@ class SlottedGraphEnvPower:
             if _2flows:
                 _2flows = dict(source=a['source'],
                                destination=a['destination'],
-                               packets=_2flows['packets'],   # + self.arrival_matrix[self.slot_num, flow_idx], # Todo: my adding incoming packets
+                               packets=_2flows['packets'] + self.arrival_matrix[self.slot_num, a['constant_flow_name']]
+                               if self.arrival_matrix is not None else _2flows['packets'], # Todo: my adding incoming packets
+
                                time_constrain=10,
                                flow_idx=ii,
                                path=a['path'],
@@ -703,16 +723,20 @@ class SlottedGraphEnvPower:
                 list_of_2flows.append(_2flows)
 
             # TODO: My adding, inserting incoming packets
-            # else:
-            #     self.alive_flow_indices.remove(flow_idx)
-            #     _2flows = dict(source=a['source'],
-            #                    destination=a['destination'],
-            #                    packets=self.arrival_matrix[self.slot_num, flow_idx],
-            #                    time_constrain=10,
-            #                    flow_idx=ii,
-            #                    path=a['path'])
-            #     ii += 1
-            #     list_of_2flows.append(_2flows)
+            # else:  # dealing with flows that finished packets during global timestep and have nonzero incoming demand
+            #     if self.arrival_matrix is not None:
+            #         if self.slotted and self.arrival_matrix[self.slot_num, a['constant_flow_name']] > 0:
+            #             # self.alive_flow_indices.remove(flow_idx)
+            #             _2flows = dict(source=a['source'],
+            #                            destination=a['destination'],
+            #                            packets=self.arrival_matrix[self.slot_num, a['constant_flow_name']],
+            #                            time_constrain=10,
+            #                            flow_idx=ii,
+            #                            path=a['path'],
+            #                            constant_flow_name=constant_flow_name)
+            #             ii += 1
+            #             list_of_2flows.append(_2flows)
+
             # else: #flows finishes, append 0 packets
             #     _2flows = dict(source=a['source'],
             #                 destination=a['destination'],
