@@ -142,14 +142,14 @@ def generate_flow_traffic(transition_matrix_properties, num_steps=20, seed=42):
     TPM = Traffic_Probability_Model(transition_matrix_properties, seed=seed)
 
     # Simulate the Markov Chain for num steps
-    state_history = mc.simulate(num_steps)
+    state_history = TPM.simulate(num_steps)
 
     return state_history
 
 
 def generate_traffic_matrix(num_flows, transition_matrix_properties, num_steps, seed=42):
 
-    traffic_matrix = np.zeros((num_steps, num_flows))
+    traffic_matrix = np.zeros((num_steps + 1, num_flows))
     for i in range(num_flows):
         traffic_matrix[:, i] = generate_flow_traffic(transition_matrix_properties, num_steps, seed=seed + (i * 10))
 
@@ -211,20 +211,28 @@ if __name__ == "__main__":
                                     'Num_of_states': 101
     }
 
+    TM = generate_traffic_matrix(num_flows=100,
+                                 transition_matrix_properties=transition_matrix_properties,
+                                 num_steps=10000)
 
-    mc = Traffic_Probability_Model(transition_matrix_properties)
+    save_path = r'C:\Users\beaviv\Datasets\Ran_DIAMOND_generated_traffic\generated_traffic_matrix.npy'
+    np.save(save_path, TM)
 
-    # Simulate the Markov Chain for 50 steps
-    num_steps = 100
-    state_history = mc.simulate(num_steps)
+    # mc = Traffic_Probability_Model(transition_matrix_properties)
+    #
+    # # Simulate the Markov Chain for 50 steps
+    # num_steps = 100
+    # state_history = mc.simulate(num_steps)
+    #
+    # # Optionally, plot the state transitions
+    # plt.figure(figsize=(10, 6))
+    # plt.plot(state_history, marker='_')
+    # plt.title("State Transitions in Markov Chain")
+    # plt.xlabel("Step")
+    # plt.ylabel("State")
+    # plt.yticks(mc.states)  # Use state names for the y-axis
+    # plt.grid(True)
+    # # plt.savefig('Probability_Model')
+    # plt.show()
 
-    # Optionally, plot the state transitions
-    plt.figure(figsize=(10, 6))
-    plt.plot(state_history, marker='_')
-    plt.title("State Transitions in Markov Chain")
-    plt.xlabel("Step")
-    plt.ylabel("State")
-    plt.yticks(mc.states)  # Use state names for the y-axis
-    plt.grid(True)
-    # plt.savefig('Probability_Model')
-    plt.show()
+    print("finished")
