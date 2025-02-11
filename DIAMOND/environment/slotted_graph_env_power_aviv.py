@@ -942,7 +942,7 @@ class SlottedGraphEnvPower:
         # There is am option to output the residuals from previous time slot (prev_residuals)
         return observation
 
-    def step(self, action, eval_path=False):
+    def step(self, action, eval_path=False, real_run=False):
         """
         action = (flow_idx, channels_per_link)
         :return: next_state, reward
@@ -950,6 +950,9 @@ class SlottedGraphEnvPower:
 
         # simulate transmission of all flows from src->dst and get reward
         reward = self.__simulate_global_transmission(action, eval_path=False)
+
+        if real_run:
+            return
 
         # next state
         next_state = self.__get_observation()

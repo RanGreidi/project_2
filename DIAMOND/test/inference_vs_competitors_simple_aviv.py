@@ -112,16 +112,19 @@ if __name__ == "__main__":
     # ]
 
     # Traffic model
-    Trafic_model_flow0 = Traffic_Probability_Model()
-    Trafic_model_flow1 = Traffic_Probability_Model()
-    Trafic_model_flow2 = Traffic_Probability_Model()
-    Trafic_model_flow3 = Traffic_Probability_Model()
-    Trafic_model_flow4 = Traffic_Probability_Model()
-    Trafic_model_flow5 = Traffic_Probability_Model()
-    Trafic_model_flow6 = Traffic_Probability_Model()
-    Trafic_model_flow7 = Traffic_Probability_Model()
-    Trafic_model_list = [Trafic_model_flow1, Trafic_model_flow2, Trafic_model_flow3, Trafic_model_flow4, Trafic_model_flow5, Trafic_model_flow6, Trafic_model_flow7]
+    Trafic_model_flow0 = Traffic_Probability_Model(source=0, destination=8, constant_flow_name=0)
+    Trafic_model_flow1 = Traffic_Probability_Model(source=0, destination=7, constant_flow_name=1)
+    Trafic_model_flow2 = Traffic_Probability_Model(source=0, destination=6, constant_flow_name=2)
+    Trafic_model_flow3 = Traffic_Probability_Model(source=0, destination=5, constant_flow_name=3)
+    Trafic_model_flow4 = Traffic_Probability_Model(source=0, destination=4, constant_flow_name=4)
+    Trafic_model_flow5 = Traffic_Probability_Model(source=0, destination=3, constant_flow_name=5)
+    Trafic_model_flow6 = Traffic_Probability_Model(source=0, destination=2, constant_flow_name=6)
+    Trafic_model_flow7 = Traffic_Probability_Model(source=0, destination=1, constant_flow_name=7)
+    Trafic_model_list = [Trafic_model_flow0, Trafic_model_flow1, Trafic_model_flow2, Trafic_model_flow3,
+                             Trafic_model_flow4, Trafic_model_flow5, Trafic_model_flow6, Trafic_model_flow7]
+    # TODO: Inital demand should be the initial state in the probablity model, if start with 0 packets, then the first state should be 0, else first state should be the first demand
 
+    # Inital flow demand list
     # constant_flow_name must start with 0 and be an int!
     F = [
         {"source": 0, "destination": 8, "packets": 10 * 1e5, "time_constrain": 10, 'flow_idx': 0, 'constant_flow_name': 0},
@@ -209,9 +212,9 @@ if __name__ == "__main__":
 
     # Function arguments
     slotted_env_args = {
-        "num_nodes": 20,
-        "num_edges": 30,
-        "num_flows": 20,
+        "num_nodes": 50,
+        "num_edges": 70,
+        "num_flows": 25,
         "min_flow_demand": 10 * 1e6,
         "max_flow_demand": 1000 * 1e6,
         "delta": 1 * 1e6,
@@ -220,7 +223,7 @@ if __name__ == "__main__":
         "max_capacity": 10 * 1e6,
         "direction": "minimize",
         "reward_balance": 0.8,
-        "seed": 4244,
+        "seed": 3544,
         "graph_mode": "random",
         "reward_weights": reward_weights,
         "telescopic_reward": True,
@@ -236,9 +239,9 @@ if __name__ == "__main__":
     }
 
     un_slotted_env_args = {
-                        "num_nodes": 20,
-                        "num_edges": 30,
-                        "num_flows": 20,
+                        "num_nodes": 50,
+                        "num_edges": 70,
+                        "num_flows": 25,
                         "min_flow_demand": 10 * 1e6,
                         "max_flow_demand": 1000 * 1e6,
                         "delta": 1 * 1e6,
@@ -247,7 +250,7 @@ if __name__ == "__main__":
                         "max_capacity": 10 * 1e6,
                         "direction": "minimize",
                         "reward_balance": 0.8,
-                        "seed": 4244,
+                        "seed": 3544,
                         "graph_mode": "random",
                         "reward_weights": reward_weights,
                         "telescopic_reward": True,
@@ -259,13 +262,13 @@ if __name__ == "__main__":
                         "channel_gain": 1,
                         "simulate_residuals": False,
                         "given_flows": None,
-                        "max_position": 1.
+                        "max_position": 1.0
                     }
 
-    load_arguments = False
+    load_arguments = True
     # ---------------- Loading args For Observation -------------- #
     if load_arguments:
-        subfolder_path = r'C:\Users\beaviv\Ran_DIAMOND_Plots\slotted_vs_unslotted\random_topologies\10_Nodes_20_Edges\20250206_100037_10_Flows'
+        subfolder_path = r'C:\Users\beaviv\Ran_DIAMOND_Plots\slotted_vs_unslotted\random_topologies\60_Nodes_70_Edges\20250129_174033_10_Flows'
         slotted_file_path = os.path.join(subfolder_path, "generate_slotted_env_args.json")
         slotted_env_args = load_arguments_from_file(filename=slotted_file_path)['args']
 
@@ -322,7 +325,7 @@ if __name__ == "__main__":
     if save_arguments:
         slotted_env.plot_raw_graph(save_path=os.path.join(subfolder_path, "graph.png"))
 
-    slotted_env.plot_raw_graph()
+    # slotted_env.plot_raw_graph()
 
     # ---------------------------- Initialize DIAMOND ------------------------- #
 
@@ -338,7 +341,7 @@ if __name__ == "__main__":
                                                                               )
     # Tot_rates_slotted_RealRun = slotted_diamond.real_run(slotted_env_real_run, action_recipe_slotted)  # run packets in the real world
 
-    manual_decisions = action_recipe_slotted[0]   # action_recipe_slotted[:slotted_env.original_num_flows]
+    manual_decisions = [[action[0], action[1]] for action in action_recipe_slotted[0]] # action_recipe_slotted[0]   # action_recipe_slotted[:slotted_env.original_num_flows]
 
     # --------------------- un slotted -------------- #
     diamond_paths_un_slotted, action_recipe_un_slotted, Tot_rates_un_slotted = slotted_diamond(un_slotted_env,

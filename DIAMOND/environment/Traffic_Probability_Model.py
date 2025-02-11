@@ -6,19 +6,24 @@ sys.path.insert(0, 'DIAMOND')
 
 
 class Traffic_Probability_Model:
-    def __init__(self, transition_matrix_properties={'mice_start_from' : 10,
-                                                     'elephent_start_from' : 1000,
+    def __init__(self,
+                 source=None,
+                 destination=None,
+                 constant_flow_name=None,
+                 seed=42,
+                 transition_matrix_properties={'mice_start_from' : 10,
+                                               'elephent_start_from' : 1000,
 
-                                                     'p_mice' : 0.05,
-                                                     'p_elephent' : 0.05,
-                                                     'p_idle' : 0.9,
+                                               'p_mice' : 0.05,
+                                               'p_elephent' : 0.05,
+                                               'p_idle' : 0.9,
 
-                                                     'p_finish' : 0.1,
-                                                     'p_same' : 0.5,
-                                                        'p_minus' : 0.2,
-                                                        'p_plus' : 0.2,
-                                                        'Num_of_states': 101
-                                                    }):
+                                               'p_finish' : 0.1,
+                                               'p_same' : 0.5,
+                                                'p_minus' : 0.2,
+                                                'p_plus' : 0.2,
+                                                'Num_of_states': 101
+                                              }):
 
         """
         Initializes the Markov chain.
@@ -47,6 +52,10 @@ class Traffic_Probability_Model:
 
         self.states = [0] + [i + transition_matrix_properties['mice_start_from'] for i in range(0,int((transition_matrix_properties['Num_of_states']-1)/2))] + [i + transition_matrix_properties['elephent_start_from'] for i in range(0,int((transition_matrix_properties['Num_of_states']-1)/2))]
         self.state = 0
+
+        self.source = source
+        self.destination = destination
+        self.constant_flow_name = constant_flow_name
 
     def step(self):
         """
@@ -125,6 +134,26 @@ class Traffic_Probability_Model:
 
         # np.sum(np.array(transition_matrix), axis=1) # make sure all rows sum to 1
         return transition_matrix
+
+
+def generate_flow_traffic(transition_matrix_properties, num_steps=20, seed=42):
+
+    # Define Flow markov chain
+    TPM = Traffic_Probability_Model(transition_matrix_properties, seed=seed)
+
+    # Simulate the Markov Chain for num steps
+    state_history = mc.simulate(num_steps)
+
+    return state_history
+
+
+def generate_traffic_matrix(num_flows, transition_matrix_properties, num_steps, seed=42):
+
+    traffic_matrix = np.zeros((num_steps, num_flows))
+    for i in range(num_flows):
+        traffic_matrix[:, i] = generate_flow_traffic(transition_matrix_properties, num_steps, seed=seed + (i * 10))
+
+    return traffic_matrix
 
 
 if __name__ == "__main__":
