@@ -294,8 +294,8 @@ if __name__ == "__main__":
     # -------------------- Arrival Matrix --------------------- #
 
     transition_matrix_properties = {
-                                    'mice_start_from': 10,
-                                    'elephent_start_from': 1000,
+                                    'mice_start_from': 10 * 1e4,
+                                    'elephent_start_from': 1000 * 1e4,
                                     'p_mice': 0.05,
                                     'p_elephent': 0.05,
                                     'p_idle': 0.9,

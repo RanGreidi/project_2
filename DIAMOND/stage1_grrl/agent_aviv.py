@@ -2,6 +2,7 @@ import torch
 from torch.distributions import Categorical
 import sys
 import os
+import copy
 import numpy as np
 
 sys.path.insert(0, os.path.join("DIAMOND", "stage1_grrl"))
@@ -170,25 +171,35 @@ class SlottedGRRL:
 
             state,SlotRates_AvgOverFlows = env.end_of_slot_update()
             Tot_rates += (SlotRates_AvgOverFlows)
-            if env.original_num_flows != env.num_flows:
-                print(f'{env.original_num_flows - env.num_flows} / {env.original_num_flows} Finished at timeslot {timeslot}')
-            print(f'Finished Timeslot {timeslot+1}/{Tot_num_of_timeslots}\n')
+            # if env.original_num_flows != env.num_flows:
+            #     print(f'{env.original_num_flows - env.num_flows} / {env.original_num_flows} Finished at timeslot {timeslot}')
+            print(f'{env.num_flows}/{len(env.original_flows)} Flow Alive\n Finished Timeslot {timeslot+1}/{Tot_num_of_timeslots}\n')
 
         return actions, paths, reward, Tot_rates
 
     def update_flows(self, env, timeslot):
 
-        alive_flow_indices = [flow['constant_flow_name'] for flow in env.flows]
-        list_of_2flows = []
-        for flow_id in range(env.original_num_flows):
+        """
+        update flow packets with incoming demand, env.flows is not the same as env.original_flows
+        anymore. go over original flows: if flow didn't finish than add packets, if finished and has
+        positive incoming demand "bring him back to life"
+        """
 
-            if flow_id in alive_flow_indices:
-                flow = env.flows[flow_id]
+        # alive_flow_indices = [flow['constant_flow_name'] for flow in env.flows]
+        list_of_2flows = []
+        for flow_id, flow in enumerate(env.original_flows):
+
+            # Search if flow with flow_id is "alive"
+            flow = next((flow for flow in env.flows if flow["constant_flow_name"] == flow_id), None)  # if alive returns flow else None
+
+            if flow is not None:  # flow is alive
                 flow['packets'] += env.arrival_matrix[timeslot][flow_id]
                 list_of_2flows.append(flow)
+
+            # If not alive, check if arrival is positive, if it is, bring him back to life
             else:
                 if env.arrival_matrix[timeslot][flow_id] > 0:
-                    flow = env.original_flows[flow_id]
+                    flow = copy.deepcopy(env.original_flows[flow_id])
                     flow['packets'] = env.arrival_matrix[timeslot][flow_id]
                     list_of_2flows.append(flow)
 

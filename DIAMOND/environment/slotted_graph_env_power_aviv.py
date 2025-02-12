@@ -712,9 +712,7 @@ class SlottedGraphEnvPower:
             if _2flows:
                 _2flows = dict(source=a['source'],
                                destination=a['destination'],
-                               packets=_2flows['packets'] + self.arrival_matrix[self.slot_num, a['constant_flow_name']]
-                               if self.arrival_matrix is not None else _2flows['packets'], # Todo: my adding incoming packets
-
+                               packets=_2flows['packets'],   # + self.arrival_matrix[self.slot_num, a['constant_flow_name']] if self.arrival_matrix is not None else _2flows['packets'], # Todo: my adding incoming packets
                                time_constrain=10,
                                flow_idx=ii,
                                path=a['path'],

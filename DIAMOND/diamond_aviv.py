@@ -87,7 +87,7 @@ class SlottedDIAMOND:
         action_recipe = rl_actions
         # rl_actions.sort(key=lambda x: x[0])
         # rl_actions = [x[1] for x in rl_actions]
-        rl_delay_data = env.get_delay_data()
+        # rl_delay_data = env.get_delay_data() # Todo : at the last iteration, after env.flows update flows might not have "path" argument so get_delay_data needs to bu updated, or maybe dont update flows at last iteration
         rl_rates_data = env.get_rates_data()
 
         # If we don't use nb3r we take grrl paths
