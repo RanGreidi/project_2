@@ -139,7 +139,7 @@ class Traffic_Probability_Model:
 def generate_flow_traffic(transition_matrix_properties, num_steps=20, seed=42):
 
     # Define Flow markov chain
-    TPM = Traffic_Probability_Model(transition_matrix_properties, seed=seed)
+    TPM = Traffic_Probability_Model(transition_matrix_properties=transition_matrix_properties, seed=seed)
 
     # Simulate the Markov Chain for num steps
     state_history = TPM.simulate(num_steps)
