@@ -79,7 +79,7 @@ class SlottedDIAMOND:
         self.nb3r_tmpr = nb3r_tmpr
         self.Traffic_Probability_Model_list = Traffic_Probability_Model_list
 
-    def __call__(self, env, grrl_data=False, use_nb3r=False, arrival_matrix=None, manual_actions=[]):
+    def __call__(self, env, grrl_data=True, use_nb3r=False, arrival_matrix=None, manual_actions=[]):
 
         #################### central computer in network computes allocations  ####################
         # stage 1

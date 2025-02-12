@@ -148,8 +148,8 @@ def one_link_transmission_old(c, packets):
         return [0] * len(packets)
 
     count = len(packets) - len([p for p in packets if p == 0]) # counts how many transmit on the same link
-    q = c / count # c // count
-    r = 0         # c % count
+    q = c // count  # c / count
+    r = c % count   # 0
     new_packs = []
     for p in packets:
         new_packs.append(p - min(p, q))
@@ -173,7 +173,7 @@ def one_link_transmission(c_list, packets):
     #     return [0] * len(packets)
 
     new_packs = []
-    for p,c in zip(packets,c_list):
+    for p, c in zip(packets,c_list):
         q = c
         r = 0         # c % count
         new_packs.append(p - min(p, q))
@@ -233,7 +233,7 @@ def link_queue_history_using_mac_protocol(c, packets):
     packs = packets.copy()
     while sum(packs) > 0:
         hist.append(packs)
-        packs = one_link_transmission(c, packs)
+        packs = one_link_transmission_old(c, packs)
     return np.array(hist)
 
 def calc_transmission_rate(link_mac):
@@ -548,3 +548,95 @@ def create_video_from_images(image_folder, output_video_path, fps=1, file_extens
     # Release the video writer
     video.release()
     print(f"Video saved at: {output_video_path}")
+
+
+def plot_rates_no_arrivals_aviv(Tot_rates_slotted, Tot_rates_un_slotted, slotted_env, subfolder_path, save_arguments):
+    # # plot rates
+    time_axis_in_resulotion = [i * slotted_env.Simulation_Time_Resolution for i in range(1, len(Tot_rates_slotted)+1)] # This time axis is a samples of each Simulation_Time_Resolution
+    # we want to avarge rates so that we have time axis sampled in seconds (this way spike due to the residual will be smoothed)    slot_duration = int(slotted_env.slot_duration * slotted_env.Simulation_Time_Resolution)
+    time_axis_in_seconds = [i for i in range(1, int(slotted_env.slot_duration * slotted_env.Simulation_Time_Resolution) * slotted_env.Tot_num_of_timeslots + 1)]  # range(1, slot_duration * slotted_env.Tot_num_of_timeslots + 1)
+
+    interpolator_slotted = interp1d(time_axis_in_resulotion, Tot_rates_slotted, kind='linear')
+    Tot_rates_slotted_interpolated = interpolator_slotted(time_axis_in_seconds)
+
+    interpolator_unslotted = interp1d(time_axis_in_resulotion, Tot_rates_un_slotted, kind='linear')
+    Tot_rates_unslotted_interpolated = interpolator_unslotted(time_axis_in_seconds)
+
+    plt.figure()
+    plt.plot(time_axis_in_seconds, Tot_rates_slotted_interpolated, linestyle='-', color='b', label='Slotted Avg Rate')
+    try:
+        nan_index = np.where(np.isnan(Tot_rates_slotted_interpolated))[0][0]
+    except IndexError:
+        nan_index = time_axis_in_seconds[-1]
+    plt.axvline(x=nan_index, color='b', linestyle='--', label='Slotted flows are done')
+
+    plt.plot(time_axis_in_seconds, Tot_rates_unslotted_interpolated, linestyle='-', color='r', label='UnSlotted Avg Rate')
+    try:
+        nan_index = np.where(np.isnan(Tot_rates_unslotted_interpolated))[0][0]
+    except IndexError:
+        nan_index = time_axis_in_seconds[-1]
+    plt.axvline(x=nan_index, color='r', linestyle='--', label='UnSlotted flows are done')
+
+    # Add labels and title
+    plt.xlabel('Time (seconds)')
+    plt.ylabel('Average Rate [bps]')
+    plt.title('Average Rates Over Time')
+    plt.legend(loc='best', prop={'size': 8})
+    plt.grid(True)
+
+    # Show the plot
+    if save_arguments:
+        plt.savefig(os.path.join(subfolder_path, 'average_rates_over_time.png'))
+    plt.show()
+
+
+def plot_rates_multiple_algorithms(algo_names, algo_tot_rates, slotted_env, subfolder_path, save_arguments):
+    """
+    Plots the average rates over time for multiple algorithms.
+
+    :param algo_names: List of algorithm names (e.g., ["Slotted", "Unslotted", "Algo3"])
+    :param algo_tot_rates: List of corresponding total rates for each algorithm (list of lists)
+    :param slotted_env: Environment containing simulation parameters
+    :param subfolder_path: Path to save the figure if save_arguments is True
+    :param save_arguments: Boolean flag to save the plot
+    """
+
+    # Create time axes
+    time_axis_in_resolution = [i * slotted_env.Simulation_Time_Resolution for i in range(1, len(algo_tot_rates[0]) + 1)]
+    time_axis_in_seconds = [i for i in range(1, int(slotted_env.slot_duration * slotted_env.Simulation_Time_Resolution) * slotted_env.Tot_num_of_timeslots + 1)]
+
+    plt.figure(figsize=(10, 6))  # Adjust figure size for better readability
+
+    # Define colors for different algorithms
+    colors = ['b', 'r', 'g', 'm', 'c', 'y', 'k']  # Extend if needed
+
+    # Iterate through each algorithm and plot its rate
+    for idx, (algo_name, Tot_rates) in enumerate(zip(algo_names, algo_tot_rates)):
+        color = colors[idx % len(colors)]  # Cycle through colors
+
+        # Interpolation
+        interpolator = interp1d(time_axis_in_resolution, Tot_rates, kind='linear')
+        Tot_rates_interpolated = interpolator(time_axis_in_seconds)
+
+        plt.plot(time_axis_in_seconds, Tot_rates_interpolated, linestyle='-' if idx == 0 else "--", color=color,
+                 label=f'{algo_name} Avg Rate')
+
+        # Detect NaN values for stopping condition
+        try:
+            nan_index = np.where(np.isnan(Tot_rates_interpolated))[0][0]
+        except IndexError:
+            nan_index = time_axis_in_seconds[-1]
+
+        plt.axvline(x=nan_index, color=color, linestyle='--', label=f'{algo_name} flows are done')
+
+    # Add labels and title
+    plt.xlabel('Time (seconds)')
+    plt.ylabel('Average Rate [bps]')
+    plt.title('Average Rates Over Time')
+    plt.legend(loc='best', prop={'size': 8})
+    plt.grid(True)
+
+    # Save or show the plot
+    if save_arguments:
+        plt.savefig(os.path.join(subfolder_path, 'average_rates_over_time.png'), dpi=300)
+    plt.show()

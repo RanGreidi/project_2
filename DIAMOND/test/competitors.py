@@ -96,6 +96,7 @@ class OSPF:
             random.seed(seed)
             np.random.seed(seed)
 
+        actions = []
         paths = []
         prev_norm = env.normalize_capacity
         env.normalize_capacity = False
@@ -103,13 +104,14 @@ class OSPF:
         rewards = []
         for step in range(env.num_flows):
             action = self._select_action(state, env)
+            actions.append(action)
             paths.append(action[1])
             state, r = env.step(action, eval_path=True)
             rewards.append(r)
         delay_data = env.get_delay_data(action_idx=False)
         rates_data = env.get_rates_data()
         env.normalize_capacity = prev_norm
-        return paths, rewards, delay_data, rates_data
+        return paths, rewards, delay_data, rates_data, actions
 
 
 class DQN_GNN:

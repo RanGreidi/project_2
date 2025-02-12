@@ -33,6 +33,7 @@ def generate_env(num_nodes=10,
                  num_flows=2,
                  min_flow_demand=100,
                  max_flow_demand=200,
+                 delta=10,
 
                  num_actions=4,
 
@@ -43,14 +44,11 @@ def generate_env(num_nodes=10,
                  reward_balance=0.8,
                  seed=37,
                  graph_mode='random',
-                 render_mode=True,
-                 slot_duration=60,  # [SEC]
-                 Tot_num_of_timeslots=60,  # [Minutes]
-                 simulate_residuals=False,
-                 **kwargs):
 
+                 given_flows=None,
+                 **kwargs):
     # assert graph_mode.lower() in ['random', 'nsfnet', 'geant']
-    assert graph_mode.lower() in ['random', 'nsfnet', 'geant', 'grid', 'irregular_grid_8x8', 'irregular_grid_6x6']
+    assert graph_mode.lower() in ['random', 'nsfnet', 'geant', 'grid', 'irregular_grid_8x8', 'irregular_grid_6x6','abilene', 'snd_geant']
 
     # 1. create graph
     if graph_mode == 'random':
@@ -89,10 +87,13 @@ def generate_env(num_nodes=10,
         num_nodes = 36
 
     # 2. create random flows
-    delta = 1
-    packets = list(range(min_flow_demand, max_flow_demand + delta, delta))
+    # delta = 10
+    packets = list(np.arange(min_flow_demand, max_flow_demand + delta, delta))
 
-    flows = _get_random_flows(num_nodes=num_nodes, num_flows=num_flows, demands=packets, seed=seed)
+    if given_flows is not None:
+        flows = given_flows
+    else:
+        flows = _get_random_flows(num_nodes=num_nodes, num_flows=num_flows, demands=packets, seed=seed)
 
     # 3. generate env instance
     # capacity_matrix = np.random.randint(low=min_capacity, high=max_capacity + 1, size=(num_nodes, num_nodes))
@@ -113,22 +114,7 @@ def generate_env(num_nodes=10,
                    seed=seed,
                    **kwargs)
 
-    slotted_env = SlottedGraphEnvPower(adjacency_matrix=adjacency,
-                                       bandwidth_matrix=capacity_matrix,
-                                       interference_matrix=interference_matrix,
-                                       node_positions=positions,
-                                       flows=flows,
-                                       k=num_actions,
-                                       direction=direction,
-                                       reward_balance=reward_balance,
-                                       seed=seed,
-                                       render_mode=render_mode,
-                                       slot_duration=slot_duration,  # [SEC]
-                                       Tot_num_of_timeslots=Tot_num_of_timeslots,  # [Minutes]
-                                       simulate_residuals=simulate_residuals,
-                                       **kwargs)
-
-    return env, slotted_env
+    return env
 
 
 def generate_slotted_env(num_nodes=10,
