@@ -16,40 +16,60 @@ os.environ['TF_CPP_MIN_LOG_LEVEL'] = '3'
 class RandomBaseline:
     """ Best allocation out of x random trials, Default: x=100. Each trial chooses path for one of k possible paths """
 
-    def __init__(self, num_trials=100):
+    def __init__(self, env, num_trials=100):
         self.num_trials = num_trials
+        self.env = env
 
-    def random_episode(self, env):
+    def random_episode(self):
+
+        env = copy.deepcopy(self.env)  # every run needs to initialize original env because it changes after episode
+
+        Tot_rates = []
+        actions = []
+
         state = env.reset()
         rewards = []
         paths = []
         for step in range(env.num_flows):
             adj_matrix, edges, free_paths, free_paths_idx, demands = state
             action = random.sample(free_paths_idx, 1)[0]
+            actions.append(action)
             state, r = env.step(action)
             rewards.append(r)
             paths.append(env.possible_actions[action[0]][action[1]])
-        delay_data = env.get_delay_data()
-        rates_data = env.get_rates_data()
-        return paths, np.sum(rewards), delay_data, rates_data
+        # delay_data = env.get_delay_data()
+        # rates_data = env.get_rates_data()
 
-    def run(self, env, seed=None):
+        state, SlotRates_AvgOverFlows = env.end_of_slot_update()
+        Tot_rates += (SlotRates_AvgOverFlows)
+        print(f'{env.num_flows}/{len(env.original_flows)} Flow Alive\n')
+
+        return paths, np.sum(rewards), Tot_rates  #, delay_data, rates_data
+
+    def run(self, seed=None):
+
         if seed is not None:
             random.seed(seed)
             np.random.seed(seed)
+
+        best_average_rate = -np.inf
+        best_Total_rates = None
 
         best_score = -np.inf
         save_delay = -np.inf
         save_rates = -np.inf
         best_paths = []
         for i in range(self.num_trials):
-            paths, score, delay_data, rates_data = self.random_episode(env)
-            if score > best_score:
-                best_score = score
+            paths, score, Tot_rates = self.random_episode()
+            if np.mean(Tot_rates) > best_average_rate:
+                best_average_rate = np.mean(Tot_rates)
+                best_Total_rates = Tot_rates
                 best_paths = paths
-                save_delay = delay_data
-                save_rates = rates_data
-        return best_paths, best_score, save_delay, save_rates
+                best_score = score
+                # save_delay = delay_data
+                # save_rates = rates_data
+
+        return best_paths, best_score, best_Total_rates
 
 
 class OSPF:
@@ -92,6 +112,10 @@ class OSPF:
         :param :
         :return:
         """
+
+        # Todo: my adding, match run for slotted env
+        Tot_rates = []
+
         if seed is not None:
             random.seed(seed)
             np.random.seed(seed)
@@ -104,14 +128,22 @@ class OSPF:
         rewards = []
         for step in range(env.num_flows):
             action = self._select_action(state, env)
+            action = [action[0], env.possible_actions[action[0]].index(action[1])]
             actions.append(action)
-            paths.append(action[1])
-            state, r = env.step(action, eval_path=True)
+            paths.append(env.possible_actions[action[0]][action[1]])
+            # paths.append(action[1])
+            state, r = env.step(action, eval_path=False)  # eval_path=True
             rewards.append(r)
-        delay_data = env.get_delay_data(action_idx=False)
-        rates_data = env.get_rates_data()
-        env.normalize_capacity = prev_norm
-        return paths, rewards, delay_data, rates_data, actions
+
+        state, SlotRates_AvgOverFlows = env.end_of_slot_update()
+        Tot_rates += (SlotRates_AvgOverFlows)
+        # delay_data = env.get_delay_data(action_idx=False)
+        # rates_data = env.get_rates_data()
+        # env.normalize_capacity = prev_norm
+
+        print(f'{env.num_flows}/{len(env.original_flows)} Flow Alive\n')
+
+        return actions, paths, rewards, Tot_rates  # paths, rewards, delay_data, rates_data, actions
 
 
 class DQN_GNN:
@@ -152,6 +184,10 @@ class DQN_GNN:
         :param env:
         :return:
         """
+
+        # Todo: my adding, match run for slotted env
+        Tot_rates = []
+
         if seed is not None:
             random.seed(seed)
             np.random.seed(seed)
@@ -165,10 +201,14 @@ class DQN_GNN:
             actions.append(action)
             paths.append(env.possible_actions[step][action].copy())
             env.step([step, action])
-        delay_data = env.get_delay_data()
-        rates_data = env.get_rates_data()
+        # delay_data = env.get_delay_data()
+        # rates_data = env.get_rates_data()
         env.set_tf_env(state=False)
-        return paths, actions, delay_data, rates_data
+
+        state, SlotRates_AvgOverFlows = env.end_of_slot_update()
+        Tot_rates += (SlotRates_AvgOverFlows)
+
+        return paths, actions, # delay_data, rates_data
 
 
 def eval_current_allocation(env, paths):
@@ -234,10 +274,14 @@ class IACR:
         :param :
         :return:
         """
+        # Todo: my adding, match run for slotted env
+        Tot_rates = []
+
         if seed is not None:
             random.seed(seed)
             np.random.seed(seed)
 
+        actions = []
         paths = []
         prev_norm = env.normalize_capacity
         env.normalize_capacity = False
@@ -245,13 +289,23 @@ class IACR:
         rewards = []
         for step in range(env.num_flows):
             action = self._select_action(state, env)
-            paths.append(action[1])
-            state, r = env.step(action, eval_path=True)
+            action = [action[0], env.possible_actions[action[0]].index(action[1])]
+            actions.append(action)
+            paths.append(env.possible_actions[action[0]][action[1]])
+            # paths.append(action[1])
+            state, r = env.step(action, eval_path=False)  # eval_path=True
             rewards.append(r)
-        delay_data = env.get_delay_data(action_idx=False)
-        rates_data = env.get_rates_data()
-        env.normalize_capacity = prev_norm
-        return paths, rewards, delay_data, rates_data
+
+        # delay_data = env.get_delay_data(action_idx=False)
+        # rates_data = env.get_rates_data()
+        # env.normalize_capacity = prev_norm
+
+        state, SlotRates_AvgOverFlows = env.end_of_slot_update()
+        Tot_rates += (SlotRates_AvgOverFlows)
+
+        print(f'{env.num_flows}/{len(env.original_flows)} Flow Alive\n')
+
+        return paths, rewards, Tot_rates  # delay_data, rates_data
 
 
 class DIAR:

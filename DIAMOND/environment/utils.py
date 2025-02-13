@@ -618,7 +618,7 @@ def plot_rates_multiple_algorithms(algo_names, algo_tot_rates, slotted_env, subf
         interpolator = interp1d(time_axis_in_resolution, Tot_rates, kind='linear')
         Tot_rates_interpolated = interpolator(time_axis_in_seconds)
 
-        plt.plot(time_axis_in_seconds, Tot_rates_interpolated, linestyle='-' if idx == 0 else "--", color=color,
+        plt.plot(time_axis_in_seconds, Tot_rates_interpolated, linestyle='-', color=color,
                  label=f'{algo_name} Avg Rate')
 
         # Detect NaN values for stopping condition

@@ -26,7 +26,7 @@ import copy
 
 if __name__ == "__main__":
 
-    MODEL_PATH = os.path.join("DIAMOND", "pretrained", "model_20221113_212726_480.pt")
+
     reward_weights = dict(rate_weight=0.5, delay_weight=0, interference_weight=0, capacity_reduction_weight=0)
     # ------------------------------------------------------------------------
     Simulation_Time_Resolution = 1e-1  # 1e-2  # miliseconds (i.e. each time step is a milisecond - this is the duration of each time step in [SEC])
@@ -278,14 +278,19 @@ if __name__ == "__main__":
     slotted_env = generate_slotted_env(**slotted_env_args)
 
     un_slotted_env = generate_slotted_env(**un_slotted_env_args)
+    ospf_env = copy.deepcopy(un_slotted_env)
+    RB_env = copy.deepcopy(un_slotted_env)
+    ICAR_env = copy.deepcopy(un_slotted_env)
+    # dqn_gnn_env = copy.deepcopy(un_slotted_env)
 
     # ------------------------------------------------------------------------------------------------ #
 
     # ------------------------------------------------------------------------- #
-    save_arguments = False
+    save_arguments = True
     # --------------- Save function arguments For Analysis -------------------- #
     if save_arguments:
-        base_path = r"C:\Users\beaviv\Ran_DIAMOND_Plots\slotted_vs_unslotted\random_topologies"
+        # base_path = r"C:\Users\beaviv\Ran_DIAMOND_Plots\slotted_vs_unslotted\random_topologies"
+        base_path = r"C:\Users\beaviv\Ran_DIAMOND_Plots\slotted_vs_competition\random_topologies"
         subfolder_name = f"{slotted_env.num_nodes}_Nodes_{slotted_env.num_edges // 2}_Edges"
         timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")  # Add timestamp
         subfolder_path = os.path.join(base_path, subfolder_name, f"{timestamp}_{slotted_env.num_flows}_Flows")
@@ -304,37 +309,54 @@ if __name__ == "__main__":
 
     # ---------------------------- Initialize DIAMOND ------------------------- #
 
+    MODEL_PATH = os.path.join("DIAMOND", "pretrained", "model_20221113_212726_480.pt")
     slotted_diamond = SlottedDIAMOND(grrl_model_path=MODEL_PATH)
 
     # ------------------------------  Competition ------------------------------- #
     ospf = OSPF()
-    ospf_env = generate_env(**slotted_env_args)
-    ospf_run_env = copy.deepcopy(un_slotted_env)
+    RB = RandomBaseline(num_trials=1, env=RB_env)
+    ICAR = IACR(delta=0.5, alpha=1.3)
+    # DQN_GNN = DQN_GNN(k=4)
+    # ospf_env = generate_env(**slotted_env_args)
+    # ospf_run_env = copy.deepcopy(un_slotted_env)
     # ospf_env.show_graph()
 
-    _, _, _, _, ospf_actions = ospf.run(ospf_env, seed=ospf_env.seed)
+    # _, _, _, _, Tot_rates_ospf = ospf.run(un_slotted_env, seed=un_slotted_env.seed)
 
     # Sort by the paths by flows
-    ospf_paths = [action[1] for action in sorted(ospf_actions, key=lambda x: x[0])]
+    # ospf_paths = [action[1] for action in sorted(ospf_actions, key=lambda x: x[0])]
 
     # Get manual decisions
-    ospf_manual_decisions = [[idx, ospf_env.possible_actions[idx].index(path)] for idx, path in enumerate(ospf_paths)]
+    # ospf_manual_decisions = [[idx, un_slotted_env.possible_actions[idx].index(path)] for idx, path in enumerate(ospf_paths)]
     # --------------------------------------------------------------------------- #
     # --------------------------------------------- Run ---------------------------------------- #
 
     # --------------------------------------------slotted -------------------------------------- #
-    diamond_paths_slotted, action_recipe_slotted, Tot_rates_slotted = slotted_diamond(slotted_env)
+    print(f'Started DIAMOND_Slotted Algorithm\n')
+    # diamond_paths_slotted, action_recipe_slotted, Tot_rates_slotted = slotted_diamond(slotted_env)
 
-    manual_decisions = [[action[0], action[1]] for action in action_recipe_slotted[0]]  # action_recipe_slotted[0]   # action_recipe_slotted[:slotted_env.original_num_flows]
+    # manual_decisions = [[action[0], action[1]] for action in action_recipe_slotted[0]]  # action_recipe_slotted[0]   # action_recipe_slotted[:slotted_env.original_num_flows]
 
     # ------------------------------------------- un slotted and competition ----------------------------------- #
-    diamond_paths_un_slotted, action_recipe_un_slotted, Tot_rates_un_slotted = slotted_diamond(un_slotted_env,
-                                                                                               grrl_data=True,
-                                                                                               manual_actions=manual_decisions)
+    print(f'Started DIAMOND_UN_Slotted Algorithm\n')
+    # diamond_paths_un_slotted, action_recipe_un_slotted, Tot_rates_un_slotted = slotted_diamond(un_slotted_env,
+    #                                                                                            grrl_data=True,
+    #                                                                                            manual_actions=manual_decisions)
 
-    ospf_paths, ospf_action_recipe, Tot_rates_ospf = slotted_diamond(ospf_run_env,
-                                                                     grrl_data=True,
-                                                                     manual_actions=ospf_manual_decisions)
+    print(f'Started OSPF Algorithm\n')
+    # ospf_actions, ospf_paths, _, Tot_rates_ospf = ospf.run(ospf_env, seed=ospf_env.seed)
+
+    print(f'Started Random Baseline Algorithm\n')
+    RB_paths, _, Tot_rates_RB = RB.run(seed=RB_env.seed)
+
+    print(f'Started ICAR Algorithm\n')
+    # icar_paths, icar_rewards, Tot_rates_icar = ICAR.run(ICAR_env, seed=ICAR_env.seed)
+
+    # dqn_gnn_paths, dqn_gnn_rewards, Tot_rates_dqn_gnn = DQN_GNN.run(dqn_gnn_env, seed=dqn_gnn_env.seed)
+
+    # ospf_paths, ospf_action_recipe, Tot_rates_ospf = slotted_diamond(ospf_run_env,
+    #                                                                  grrl_data=True,
+    #                                                                  manual_actions=ospf_manual_decisions)
     # ------------------------------------------------------------------------------------------ #
     # ------------------------------------------------- Plots ---------------------------------- #
 
@@ -344,11 +366,10 @@ if __name__ == "__main__":
     #                             subfolder_path=subfolder_path if save_arguments else None,
     #                             save_arguments=save_arguments)
 
-    plot_rates_multiple_algorithms(algo_names=["DIAMOND_Slotted", "DIAMOND_UnSlotted", "OSPF"],
-                                   algo_tot_rates=[Tot_rates_slotted, Tot_rates_un_slotted, Tot_rates_ospf],
+    plot_rates_multiple_algorithms(algo_names=["DIAMOND_Slotted", "DIAMOND_UnSlotted", "OSPF", "RB", "ICAR"],
+                                   algo_tot_rates=[Tot_rates_slotted, Tot_rates_un_slotted, Tot_rates_ospf, Tot_rates_RB, Tot_rates_icar],
                                    slotted_env=slotted_env,
                                    subfolder_path=subfolder_path if save_arguments else None,
                                    save_arguments=save_arguments)
-
     print('finished')
 

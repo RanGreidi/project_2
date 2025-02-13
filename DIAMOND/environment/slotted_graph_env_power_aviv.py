@@ -117,6 +117,20 @@ class SlottedGraphEnvPower:
         self.slotted = slotted
         self.original_flows = copy.deepcopy(self.flows)
 
+        # for tf env
+        self.tf_env = False
+        self.num_sps = None
+        self.firsts = []
+        self.seconds = []
+        self.gen_first_second()
+
+    def gen_first_second(self):
+        for i, u in enumerate(self.adjacency_matrix):
+            for j, v in enumerate(u):
+                if v != 0:
+                    self.firsts.append(i)
+                    self.seconds.append(j)
+
     def __create_graph(self):
         """
         Create communication graph
@@ -599,8 +613,14 @@ class SlottedGraphEnvPower:
                 allocated_paths = [a[1] for a in sorted(self.allocated, key=lambda x: x[0])]
 
             # update flows in env.flows that were allocated so far
-            for i, allocated_path in enumerate(allocated_paths):
-                self.flows[i].update({'path': allocated_path})
+
+            # Todo: My change. self.allocated is not necessarily sorted with flow indices so must go through it and not with enumerate that assumes flows added by flow id.
+            for allocated_action, allocated_path in zip(self.allocated, allocated_paths):
+                self.flows[allocated_action[0]].update({'path': allocated_path})
+
+            # for i, allocated_path in enumerate(allocated_paths):
+            #     self.flows[i].update({'path': allocated_path})
+
             #   active_flows is a list of tuples with (flow_indx,rout) of all active flows.
             #   it does not change throughut a step. each episode it appends one more flow
             active_flows = [(a[0], self.flows[a[0]]) for a in self.allocated]
@@ -869,6 +889,9 @@ class SlottedGraphEnvPower:
 
         return data, Avg_Rate_over_flows
 
+    def set_tf_env(self, state=False):
+        self.tf_env = state
+
     def edge_list_to_adj_mat(self, lst):
         mat = np.zeros((self.num_nodes, self.num_nodes))
         for eid, l in enumerate(lst):
@@ -899,7 +922,7 @@ class SlottedGraphEnvPower:
         if self.current_link_interference_list_4EachTimeStep:
             interference = self.edge_list_to_adj_mat(self.current_link_interference_list_4EachTimeStep[-1]) # take the last interference
         else:
-            interference = np.zeros((self.num_nodes, self.num_nodes))
+            interference = self.edge_list_to_adj_mat(self.cumulative_link_interference)   # interference = np.zeros((self.num_nodes, self.num_nodes))  # Todo: ask ran why zeros
 
         self.current_link_interference_list_4EachTimeStep = []  # reset for the next time slot
         # capacity
@@ -908,7 +931,7 @@ class SlottedGraphEnvPower:
             normalized_capacity = self.edge_list_to_adj_mat(
                 self.current_link_capacity_list_4EachTimeStep[-1])  # take the last capacity
         else:
-            normalized_capacity = np.zeros((self.num_nodes, self.num_nodes))
+            normalized_capacity = self.edge_list_to_adj_mat(self.current_link_capacity)  # normalized_capacity = np.zeros((self.num_nodes, self.num_nodes)) # Todo: ask ran why zeros
 
         self.current_link_capacity_list_4EachTimeStep = []  # reset for the next time slot
 
@@ -940,10 +963,34 @@ class SlottedGraphEnvPower:
         else:  # if we are in the last time step of the time slot, return initialzed demand
             normalized_demand = None
 
-        # if self.tf_env:
-        #     return self.__get_tf_state()
+        if self.tf_env:
+            return self.__get_tf_state()
 
         return state_matrixes, edges, free_paths, free_paths_idx, normalized_demand
+
+    def __get_tf_state(self):
+        """
+        :return: state for DQN+GNN agent (tf)
+        """
+        norm_capacity = (np.array(self.current_link_capacity) - self.max_capacity // 2) / self.max_capacity
+        betweenes = np.array(self.num_sps) / (((2.0 * self.num_nodes * (self.num_nodes - 1) * self.k) + 0.00000001))
+
+        last_action = np.zeros((self.num_edges // 2, 3))
+        for i, u in enumerate(self.last_action):
+            for j, v in enumerate(u):
+                if v:
+                    last_action[self.eids[(i, j)]][0] = 1
+
+        obs = np.concatenate([
+            norm_capacity.reshape(-1, 1),
+            betweenes.reshape(-1, 1),
+            last_action,
+            np.zeros((self.num_edges // 2, 15))
+        ], axis=1)
+
+        gids = np.array([0] * (self.num_edges // 2))
+
+        return obs, gids, np.array(self.firsts), np.array(self.seconds), self.num_edges // 2
 
     def reset(self):
         """ reset environment """
@@ -971,7 +1018,7 @@ class SlottedGraphEnvPower:
         """
 
         # simulate transmission of all flows from src->dst and get reward
-        reward = self.__simulate_global_transmission(action, eval_path=False)
+        reward = self.__simulate_global_transmission(action, eval_path=eval_path)
 
         if real_run:
             return
