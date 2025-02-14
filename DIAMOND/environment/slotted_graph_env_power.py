@@ -173,11 +173,11 @@ class SlottedGraphEnvPower:
         
         #add capacity matrix to graph
         current_link_capacity_mat = self.edge_list_to_adj_mat(self.current_link_capacity)
-        for u in range(self.num_nodes):
-            for v in range(self.num_nodes):
-                if u != v:
-                    if (u,v) in label_dict:
-                        label_dict[(u,v)] += (f"\n Capacity [bps]: {round(current_link_capacity_mat[u,v],2)/self.Simulation_Time_Resolution}")
+        # for u in range(self.num_nodes):
+        #     for v in range(self.num_nodes):
+        #         if u != v:
+        #             if (u,v) in label_dict:
+        #                 label_dict[(u,v)] += (f"\n Capacity [bps]: {round(current_link_capacity_mat[u,v],2)/self.Simulation_Time_Resolution}")
 
 
 
@@ -563,10 +563,14 @@ class SlottedGraphEnvPower:
                 allocated_paths = [self.possible_actions[a[0]][a[1]] for a in sorted(self.allocated, key=lambda x: x[0])]
             else:
                 allocated_paths = [a[1] for a in sorted(self.allocated, key=lambda x: x[0])]
+
+            # update flows in env.flows that were allocated so far            
+            for allocated_action, allocated_path in zip(self.allocated, allocated_paths):
+                            self.flows[allocated_action[0]].update({'path': allocated_path})
+
+            # for i, allocated_path in enumerate(allocated_paths):
+            #     self.flows[i].update({'path':allocated_path})
             
-            # update flows in env.flows that were allocated so far
-            for i, allocated_path in enumerate(allocated_paths):
-                self.flows[i].update({'path':allocated_path})
             #   active_flows is a list of tuples with (flow_indx,rout) of all active flows. 
             #   it does not change throughut a step. each episode it appends one more flow
             active_flows = [(a[0], self.flows[a[0]]) for a in self.allocated] 
@@ -854,14 +858,16 @@ class SlottedGraphEnvPower:
         if self.current_link_interference_list_4EachTimeStep:
             interference = self.edge_list_to_adj_mat(self.current_link_interference_list_4EachTimeStep[-1]) # take the last interference
         else: 
-            interference = np.zeros((self.num_nodes,self.num_nodes))
+             interference = self.edge_list_to_adj_mat(self.cumulative_link_interference)   
+            #  interference = np.zeros((self.num_nodes, self.num_nodes))  # Todo: ask ran why zeros
         self.current_link_interference_list_4EachTimeStep = [] # reset for the next time slot
         # capacity
         #normalized_capacity = self.edge_list_to_adj_mat(self.current_link_capacity)
         if self.current_link_capacity_list_4EachTimeStep:
             normalized_capacity = self.edge_list_to_adj_mat(self.current_link_capacity_list_4EachTimeStep[-1]) # take the last capacity
         else: 
-            normalized_capacity = np.zeros((self.num_nodes,self.num_nodes))            
+             normalized_capacity = self.edge_list_to_adj_mat(self.current_link_capacity)  
+            #  normalized_capacity = np.zeros((self.num_nodes, self.num_nodes)) # Todo: 
         self.current_link_capacity_list_4EachTimeStep = [] # reset for the next time slot
 
 

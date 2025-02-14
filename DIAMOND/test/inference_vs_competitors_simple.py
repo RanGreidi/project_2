@@ -28,7 +28,7 @@ if __name__ == "__main__":
     # ------------------------------------------------------------------------
     Simulation_Time_Resolution = 1e-1       # miliseconds (i.e. each time step is a milisecond - this is the duration of each time step in [SEC])
     BW_value_in_Hertz = 1e6                   # wanted BW in Hertz
-    slot_duration = 15                     # [SEC] 
+    slot_duration = 4                     # [SEC] 
     Tot_num_of_timeslots = 3               # [num of time slots]
     #------------------------------------------------------------------------
 
@@ -82,11 +82,11 @@ if __name__ == "__main__":
 
 
     # number of paths to choose from
-    action_size = 20                      #search space limitaions?
+    action_size = 30                      #search space limitaions?
 
     # flow demands in KiloByte
     F = [
-        {"source": 0, "destination": 8, "packets": 10  *1e5    , "time_constrain": 10 , 'flow_idx': 0 },
+        {"source": 0, "destination": 8, "packets": 5  *1e5    , "time_constrain": 10 , 'flow_idx': 0 },
         {"source": 0, "destination": 7, "packets": 100 *1e5    , "time_constrain": 10, 'flow_idx': 1},         #Packets [in Bits]  
     ]
 
@@ -111,7 +111,7 @@ if __name__ == "__main__":
                                         direction = 'minimize',
                                         slot_duration = int(slot_duration / Simulation_Time_Resolution),          # [in SEC ]
                                         Tot_num_of_timeslots = Tot_num_of_timeslots,         # [num of time slots]
-                                        render_mode = False,
+                                        render_mode = True,
                                         trx_power_mode='gain',
                                         channel_gain = 1,
                                         # channel_manual_gain = [100,200,3,400,500,600],
