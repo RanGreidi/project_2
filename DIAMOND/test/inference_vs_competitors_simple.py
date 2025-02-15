@@ -104,12 +104,12 @@ if __name__ == "__main__":
 
     F = [
         {"source": 0, "destination": 8, "packets": 10    *1e3, "time_constrain": 10 , 'flow_idx': 0 , 'constant_flow_name': 0},
-        {"source": 0, "destination": 7, "packets": 17    *1e3, "time_constrain": 10, 'flow_idx': 1 , 'constant_flow_name': 1},         #Packets [in Bits]
-        {"source": 0, "destination": 6, "packets": 12  *1e3, "time_constrain": 10, 'flow_idx': 2 , 'constant_flow_name': 2},         #Packets [in Bits]
+        {"source": 0, "destination": 7, "packets": 1    *1e3, "time_constrain": 10, 'flow_idx': 1 , 'constant_flow_name': 1},         #Packets [in Bits]
+        {"source": 0, "destination": 6, "packets": 1  *1e3, "time_constrain": 10, 'flow_idx': 2 , 'constant_flow_name': 2},         #Packets [in Bits]
         {"source": 0, "destination": 5, "packets": 18 *1e3, "time_constrain": 10, 'flow_idx': 3 , 'constant_flow_name': 3},
         {"source": 0, "destination": 4, "packets": 15  *1e3, "time_constrain": 10 , 'flow_idx': 4 , 'constant_flow_name': 4},
-        {"source": 0, "destination": 3, "packets": 19  *1e3, "time_constrain": 10, 'flow_idx': 5 , 'constant_flow_name': 5},         #Packets [in Bits]
-        {"source": 0, "destination": 2, "packets": 17  *1e3, "time_constrain": 10, 'flow_idx': 6 , 'constant_flow_name': 6},         #Packets [in Bits]
+        {"source": 0, "destination": 3, "packets": 1  *1e3, "time_constrain": 10, 'flow_idx': 5 , 'constant_flow_name': 5},         #Packets [in Bits]
+        {"source": 0, "destination": 2, "packets": 1  *1e3, "time_constrain": 10, 'flow_idx': 6 , 'constant_flow_name': 6},         #Packets [in Bits]
         {"source": 0, "destination": 1, "packets": 15   *1e3, "time_constrain": 10, 'flow_idx': 7 , 'constant_flow_name': 7}
     ]
 

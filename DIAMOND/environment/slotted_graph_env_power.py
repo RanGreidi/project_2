@@ -142,10 +142,10 @@ class SlottedGraphEnvPower:
                 else:
                     u,v = a['link']
                     if (u,v) in residual_dict:
-                        flow_name =f"\n res: {a['residual_name']}(flow{a['constant_flow_name']})"
+                        flow_name =f"\n res: {a['residual_name']}"
                         residual_dict[(u,v)] += flow_name + f"\n remaining packet: {round(a['packets'],2)}"
                     else:
-                        flow_name = f"\n res: {a['residual_name']}(flow{a['constant_flow_name']})"
+                        flow_name = f"\n res: {a['residual_name']}"
                         residual_dict.update({(u,v): flow_name + f"\n remaining packet: {round(a['packets'],2)}"})
             #add rates table to graph
             flow_rates = self.routing_metrics['rate']['rate_per_flow'][:,total_time_stemp_in_single_slot].tolist()    
@@ -164,10 +164,10 @@ class SlottedGraphEnvPower:
                 else:  
                     u,v = a['link']
                     if (u,v) in residual_dict:
-                        flow_name = f"\n res: {a['residual_name']}(flow{a['constant_flow_name']})"
+                        flow_name = f"\n res: {a['residual_name']}"
                         residual_dict[(u,v)] += flow_name + f"\n remaining packet: {round(a['packets'],2)}"
                     else:
-                        flow_name = f"\n res: {a['residual_name']}(flow{a['constant_flow_name']})"
+                        flow_name = f"\n res: {a['residual_name']}"
                         residual_dict.update({(u,v): flow_name + f"\n remaining packet: {round(a['packets'],2)}"})
             #add rates table to graph
             flow_rates = self.routing_metrics['rate']['rate_per_flow'][:,total_time_stemp_in_single_slot].tolist()    
@@ -371,11 +371,13 @@ class SlottedGraphEnvPower:
             if 'residual_name' in active_links[l1]:
                 shared_resource = dict(link=active_links[l1]['link'],
                                    packets=[active_links[l1]['packets']],
-                                   flows_idxs=[(active_links[l1]['flow_idx'], active_links[l1]['residual_name'])])                
+                                   flows_idxs=[(active_links[l1]['flow_idx'], active_links[l1]['residual_name'])],
+                                    constant_flow_name=[active_links[l1]['constant_flow_name']])                
             else:
                 shared_resource = dict(link=active_links[l1]['link'],
                                     packets=[active_links[l1]['packets']],
-                                    flows_idxs=[(active_links[l1]['flow_idx'], None)])
+                                    flows_idxs=[(active_links[l1]['flow_idx'], None)],
+                                    constant_flow_name=[active_links[l1]['constant_flow_name']])
                 
             for l2 in range(l1+1, len(active_links)):
                 # find transmission over the same link
@@ -383,8 +385,10 @@ class SlottedGraphEnvPower:
                     shared_resource['packets'].append(active_links[l2]['packets'])
                     if 'residual_name' in active_links[l2]:
                         shared_resource['flows_idxs'].append((active_links[l2]['flow_idx'],active_links[l2]['residual_name']))
+                        shared_resource['constant_flow_name'].append((active_links[l2]['constant_flow_name'],active_links[l2]['residual_name']))
                     else: 
                         shared_resource['flows_idxs'].append((active_links[l2]['flow_idx'],None))
+                        shared_resource['constant_flow_name'].append(active_links[l2]['constant_flow_name'])
             if str(shared_resource['link']) not in action_dict.keys():
                 action_dict[str(shared_resource['link'])] = shared_resource
         ## end produce action dict ###
@@ -422,7 +426,7 @@ class SlottedGraphEnvPower:
             for idx, pkt in enumerate(advanced_packets): # this loop is for the case two flows share the same link, than advanced_packets is a list
                 flow_idx = a['flows_idxs'][idx][0]
                 residual_name = a['flows_idxs'][idx][1] #name or None
-                
+                constant_flow_name=a['constant_flow_name'][idx]
                 True==True
                 if not residual_name:    
                     flow = self.flows[flow_idx]
@@ -438,7 +442,8 @@ class SlottedGraphEnvPower:
                         else:
                             next_active_links.append(dict(flow_idx=flow_idx,
                                                         link=next_hop,
-                                                        packets=pkt))
+                                                        packets=pkt,
+                                                        constant_flow_name=constant_flow_name))
                 else:
                     #search for the spesific resiudal flow at self.residual_flows
                     flow = next((dict for dict in self.residual_flows if dict.get('residual_name') == residual_name), None)
@@ -455,7 +460,8 @@ class SlottedGraphEnvPower:
                             next_active_links.append(dict(flow_idx=flow_idx,
                                                         link=next_hop,
                                                         packets=pkt,
-                                                        residual_name=residual_name))
+                                                        residual_name=residual_name,
+                                                        constant_flow_name=constant_flow_name))
                         
                         # if len(self.allocated) == len(self.flows): 
                         #     # update self.residual_flows - advance the current flow rout by one
@@ -473,7 +479,7 @@ class SlottedGraphEnvPower:
             for idx, pkt in enumerate(remaining_packets):
                     flow_idx = a['flows_idxs'][idx][0]
                     residual_name = a['flows_idxs'][idx][1] #name or None
-                    
+                    constant_flow_name = a['constant_flow_name'][idx]
                     True==True
                     if not residual_name: 
                         if pkt > 0:
@@ -485,7 +491,8 @@ class SlottedGraphEnvPower:
                             else:
                                 next_active_links.append(dict(flow_idx=flow_idx,
                                                             link=a['link'],
-                                                            packets=pkt))
+                                                            packets=pkt,
+                                                            constant_flow_name=constant_flow_name))
                     else:
                         flow = next((dict for dict in self.residual_flows if dict.get('residual_name') == residual_name), None)
                         if pkt > 0:
@@ -498,7 +505,8 @@ class SlottedGraphEnvPower:
                                 next_active_links.append(dict(flow_idx=flow_idx,
                                                             link=a['link'],
                                                             packets=pkt,
-                                                            residual_name=residual_name))
+                                                            residual_name=residual_name,
+                                                            constant_flow_name=constant_flow_name))
                                 
                             # if len(self.allocated) == len(self.flows):
                             #     # update self.residual_flows - create a new flow with the existing pkt and same rout 
@@ -596,7 +604,8 @@ class SlottedGraphEnvPower:
             residual_active_links = [dict(flow_idx=f['flow_idx'],
                                           link=(f['path'][0], f['path'][1]),
                                           packets=f['packets'],
-                                          residual_name=f['residual_name'])       for f in active_residual_flows]
+                                          residual_name=f['residual_name'],
+                                          constant_flow_name=f['constant_flow_name'])              for f in active_residual_flows]
         else: residual_active_links = []
 
         active_links += residual_active_links
@@ -676,6 +685,7 @@ class SlottedGraphEnvPower:
                             packets=_2flows['packets'],
                             time_constrain=10,
                             flow_idx=ii,
+                            constant_flow_name=a['constant_flow_name'],
                             path=a['path'])
                 ii+=1
                 list_of_2flows.append(_2flows)
@@ -695,6 +705,7 @@ class SlottedGraphEnvPower:
                                 packets=res['packets'],
                                 time_constrain=10,
                                 flow_idx=flow_idx,
+                                constant_flow_name=a['constant_flow_name'],
                                 path=a['path'][a['path'].index(res['link'][0]):],
                                 residual_name=generate_name())
                     #self.residual_flows.append(_2res)                
