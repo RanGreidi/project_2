@@ -274,6 +274,9 @@ class SlottedGraphEnvPower:
                     if r > sys.float_info.epsilon:
                         self.interference_map[l1, l2] = self.trx_power[l1] / (r ** 2)
                         self.interference_map[l2, l1] = self.trx_power[l2] / (r ** 2)   
+                    else: # in case r = 0, we do want to have very large interference, not zero!
+                        self.interference_map[l1, l2] = self.trx_power[l1] / ((r+1e-10) ** 2)
+                        self.interference_map[l2, l1] = self.trx_power[l2] / ((r+1e-10) ** 2)   
 
     def _init_transmission_power(self):
         """
@@ -623,9 +626,9 @@ class SlottedGraphEnvPower:
             if self.total_time_stemp_in_single_slot < self.slot_duration: 
                 active_links, hop_metadata = self._transmit_singe_timestep(active_links, self.total_time_stemp_in_single_slot)
                 
-                # if self.render_mode and len(self.allocated) == len(self.flows): # plot rate only when all flows are allocated
-                plot_rate = 1 if len(self.allocated) == len(self.flows) else 0
-                self.show_graph(active_links, self.total_time_stemp_in_single_slot, plot_rate ,self.total_time_stemp_in_single_slot)
+                if self.render_mode and len(self.allocated) == len(self.flows): # plot rate only when all flows are allocated
+                    plot_rate = 1 if len(self.allocated) == len(self.flows) else 0
+                    self.show_graph(active_links, self.total_time_stemp_in_single_slot, plot_rate ,self.total_time_stemp_in_single_slot)
                 
                 metadata.append(hop_metadata)
                 self.total_time_stemp_in_single_slot += 1       
@@ -876,8 +879,9 @@ class SlottedGraphEnvPower:
                           the first (action_size) elements are the posible routs for the first flow, the second (action_size) elemnts are the posible routs for the second flow, and so on.
         """
         # interference
+        idx_for_interferance_and_capacity = next((i for i in range(len(self.current_link_interference_list_4EachTimeStep) - 1) if np.all(self.current_link_interference_list_4EachTimeStep[i + 1] == 0)), -1)
         if self.current_link_interference_list_4EachTimeStep:
-            interference = self.edge_list_to_adj_mat(self.current_link_interference_list_4EachTimeStep[-1]) # take the last interference
+            interference = self.edge_list_to_adj_mat(self.current_link_interference_list_4EachTimeStep[idx_for_interferance_and_capacity]) # take the last interference is worng!, it might be zero if the flow finished
         else: # for reset
              interference = self.edge_list_to_adj_mat(self.cumulative_link_interference)   
             #  interference = np.zeros((self.num_nodes, self.num_nodes))  # Todo: ask ran why zeros
@@ -885,7 +889,7 @@ class SlottedGraphEnvPower:
         # capacity
         #normalized_capacity = self.edge_list_to_adj_mat(self.current_link_capacity)
         if self.current_link_capacity_list_4EachTimeStep:
-            normalized_capacity = self.edge_list_to_adj_mat(self.current_link_capacity_list_4EachTimeStep[-1]) # take the last capacity
+            normalized_capacity = self.edge_list_to_adj_mat(self.current_link_capacity_list_4EachTimeStep[idx_for_interferance_and_capacity]) # take the last capacity
         else: # for reset
              normalized_capacity = self.edge_list_to_adj_mat(self.current_link_capacity)  
             #  normalized_capacity = np.zeros((self.num_nodes, self.num_nodes)) # Todo: 

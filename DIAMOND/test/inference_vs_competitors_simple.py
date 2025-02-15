@@ -26,10 +26,10 @@ if __name__ == "__main__":
     reward_weights = dict(rate_weight=0.5, delay_weight=0, interference_weight=0, capacity_reduction_weight=0)
 
     # ------------------------------------------------------------------------
-    Simulation_Time_Resolution = 5e-1       # miliseconds (i.e. each time step is a milisecond - this is the duration of each time step in [SEC])
+    Simulation_Time_Resolution = 1e-1       # miliseconds (i.e. each time step is a milisecond - this is the duration of each time step in [SEC])
     BW_value_in_Hertz = 1e6                   # wanted BW in Hertz
-    slot_duration = 3                     # [SEC] 
-    Tot_num_of_timeslots = 200               # [num of time slots]
+    slot_duration = 1                     # [SEC] 
+    Tot_num_of_timeslots = 20000               # [num of time slots]
     #------------------------------------------------------------------------
 
     # # number of nodes
@@ -92,25 +92,35 @@ if __name__ == "__main__":
 
 
     # number of paths to choose from
-    action_size = 44                      #search space limitaions?
+    action_size = 100                      #search space limitaions?
 
     # flow demands in KiloByte
     F = [
         {"source": 0, "destination": 8, "packets": 3  *1e6    , "time_constrain": 10 , 'flow_idx': 0 , 'constant_flow_name': 0},
-        {"source": 1, "destination": 8, "packets": 10 *1e6    , "time_constrain": 10, 'flow_idx': 1, 'constant_flow_name': 1},         #Packets [in Bits] 
-        {"source": 3, "destination": 8, "packets": 30 *1e6    , "time_constrain": 10, 'flow_idx': 2, 'constant_flow_name': 2},         #Packets [in Bits]   
-        {"source": 4, "destination": 8, "packets": 1000 *1e6    , "time_constrain": 10, 'flow_idx': 3, 'constant_flow_name': 3},
+        {"source": 0, "destination": 5, "packets": 10 *1e6    , "time_constrain": 10, 'flow_idx': 1, 'constant_flow_name': 1},         #Packets [in Bits] 
+        {"source": 0, "destination": 7, "packets": 30 *1e6    , "time_constrain": 10, 'flow_idx': 2, 'constant_flow_name': 2},         #Packets [in Bits]   
+        {"source": 0, "destination": 8, "packets": 1000 *1e6    , "time_constrain": 10, 'flow_idx': 3, 'constant_flow_name': 3},
+        {"source": 0, "destination": 4, "packets": 3  *1e6    , "time_constrain": 10 , 'flow_idx': 0 , 'constant_flow_name': 4},
+        {"source": 0, "destination": 8, "packets": 5 *1e6    , "time_constrain": 10, 'flow_idx': 1, 'constant_flow_name': 5},        
     ]
 
     # F = [
-    #     {"source": 0, "destination": 8, "packets": 2    *1e6, "time_constrain": 10 , 'flow_idx': 0 , 'constant_flow_name': 0},
-    #     {"source": 0, "destination": 7, "packets": 1    *1e6, "time_constrain": 10, 'flow_idx': 1 , 'constant_flow_name': 1},         #Packets [in Bits]
-    #     {"source": 0, "destination": 6, "packets": 1  *1e6, "time_constrain": 10, 'flow_idx': 2 , 'constant_flow_name': 2},         #Packets [in Bits]
-    #     {"source": 0, "destination": 5, "packets": 18 *1e6, "time_constrain": 10, 'flow_idx': 3 , 'constant_flow_name': 3},
-    #     {"source": 0, "destination": 4, "packets": 15  *1e6, "time_constrain": 10 , 'flow_idx': 4 , 'constant_flow_name': 4},
-    #     {"source": 0, "destination": 3, "packets": 1  *1e6, "time_constrain": 10, 'flow_idx': 5 , 'constant_flow_name': 5},         #Packets [in Bits]
-    #     {"source": 0, "destination": 2, "packets": 1  *1e6, "time_constrain": 10, 'flow_idx': 6 , 'constant_flow_name': 6},         #Packets [in Bits]
-    #     {"source": 0, "destination": 1, "packets": 15   *1e6, "time_constrain": 10, 'flow_idx': 7 , 'constant_flow_name': 7}
+    #     {"source": 0, "destination": 8, "packets": 3    *1e6, "time_constrain": 10, 'flow_idx': 0 , 'constant_flow_name': 0},
+    #     {"source": 0, "destination": 7, "packets": 3    *1e6, "time_constrain": 10, 'flow_idx': 1 , 'constant_flow_name': 1},         #Packets [in Bits]
+    #     {"source": 0, "destination": 6, "packets": 3    *1e6, "time_constrain": 10, 'flow_idx': 2 , 'constant_flow_name': 2},         #Packets [in Bits]
+    #     {"source": 0, "destination": 5, "packets": 18   *1e6, "time_constrain": 10, 'flow_idx': 3 , 'constant_flow_name': 3},
+    #     {"source": 0, "destination": 4, "packets": 15   *1e6, "time_constrain": 10, 'flow_idx': 4 , 'constant_flow_name': 4},
+    #     {"source": 0, "destination": 3, "packets": 3    *1e6, "time_constrain": 10, 'flow_idx': 5 , 'constant_flow_name': 5},         #Packets [in Bits]
+    #     {"source": 0, "destination": 2, "packets": 3    *1e6, "time_constrain": 10, 'flow_idx': 6 , 'constant_flow_name': 6},         #Packets [in Bits]
+    #     {"source": 0, "destination": 1, "packets": 15   *1e6, "time_constrain": 10, 'flow_idx': 7 , 'constant_flow_name': 7},
+    #     {"source": 0, "destination": 8, "packets": 30    *1e6, "time_constrain": 10, 'flow_idx': 8 , 'constant_flow_name': 8},
+    #     {"source": 0, "destination": 7, "packets": 1000    *1e6, "time_constrain": 10, 'flow_idx': 9 , 'constant_flow_name': 9},         #Packets [in Bits]
+    #     {"source": 0, "destination": 6, "packets": 3000    *1e6, "time_constrain": 10, 'flow_idx': 10 , 'constant_flow_name': 10},         #Packets [in Bits]
+    #     # {"source": 0, "destination": 5, "packets": 180   *1e6, "time_constrain": 10, 'flow_idx': 11 , 'constant_flow_name': 11},
+    #     # {"source": 0, "destination": 4, "packets": 150   *1e6, "time_constrain": 10, 'flow_idx': 12 , 'constant_flow_name': 12},
+    #     # {"source": 0, "destination": 3, "packets": 300    *1e6, "time_constrain": 10, 'flow_idx': 13 , 'constant_flow_name': 13},         #Packets [in Bits]
+    #     # {"source": 0, "destination": 2, "packets": 300    *1e6, "time_constrain": 10, 'flow_idx': 14 , 'constant_flow_name': 14},         #Packets [in Bits]
+    #     # {"source": 0, "destination": 1, "packets": 150   *1e6, "time_constrain": 10, 'flow_idx': 15 , 'constant_flow_name': 15}
     # ]
 
     slotted_env = SlottedGraphEnvPower( adjacency_matrix=A,

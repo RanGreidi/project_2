@@ -204,7 +204,7 @@ def calc_indevidual_minimum_capacity(self,a,action_dict,current_link_capacity):
         for b in action_dict.values(): # for each link that flow_in_current_link is in the action_dict
             if flow_in_current_link in b['flows_idxs']: # if the flow is in the link
                 count = len(b['packets']) - len([p for p in b['packets'] if p == 0]) # counts how many transmit on the same current link
-                q = current_link_capacity[self.eids[b['link']]] / count # c // count
+                q = current_link_capacity[self.eids[b['link']]] // count # c // count
                 if  q < minumum_capacity:
                     minumum_capacity = q # the bottle nech of the flow
                     
@@ -279,7 +279,7 @@ def generate_random_graph(n, e, seed=None):
         adjacency[i, j] = 1
         adjacency[j, i] = 1
 
-    g = nx.from_numpy_matrix(adjacency, create_using=nx.Graph)
+    g = nx.from_numpy_array(adjacency, create_using=nx.Graph)
     for u, v, attr in g.edges(data=True):
         # set node position
         if g.nodes[u] == {}:

@@ -3,6 +3,8 @@ import random
 import os
 from datetime import datetime
 import shutil
+from scipy.interpolate import interp1d
+import matplotlib.pyplot as plt
 
 import sys
 sys.path.insert(0, 'DIAMOND')
@@ -10,6 +12,7 @@ sys.path.insert(0, 'DIAMOND')
 
 from diamond import DIAMOND, SlottedDIAMOND
 from environment import generate_env
+from environment import SlottedGraphEnvPower
 from competitors import OSPF, RandomBaseline, DQN_GNN, DIAR, IACR
 
 SEED = 123
@@ -20,17 +23,22 @@ os.environ["PYTHONHASHSEED"] = str(SEED)
 
 class TestvsCompetitors:
     def __init__(self,
-                 grrl_model_path,
                  num_episodes=100,
                  num_rb_trials=100,
                  **kwargs):
-        
-        self.slotted_diamond = SlottedDIAMOND(grrl_model_path=grrl_model_path, nb3r_tmpr=kwargs.get('nb3r_tmpr', 1),
-                               nb3r_steps=kwargs.get('nb3r_tmpr', 100))
-        
-        self.diamond = DIAMOND(grrl_model_path=grrl_model_path, nb3r_tmpr=kwargs.get('nb3r_tmpr', 1),
-                               nb3r_steps=kwargs.get('nb3r_tmpr', 100))
-        
+
+        self.MODEL_PATH = os.path.join("DIAMOND", "pretrained", "model_20221113_212726_480.pt")
+        self.reward_weights = dict(rate_weight=0.5, delay_weight=0, interference_weight=0, capacity_reduction_weight=0)
+
+
+        self.Simulation_Time_Resolution = 1e-1       # miliseconds (i.e. each time step is a milisecond - this is the duration of each time step in [SEC])
+        self.BW_value_in_Hertz = 1e6                   # wanted BW in Hertz
+        self.slot_duration = 1                     # [SEC] 
+        self.Tot_num_of_timeslots = 20000000               # [num of time slots]
+
+        self.action_size = 100 
+
+    
         self.num_episodes = num_episodes
         self.episode_from = kwargs.get('episode_from', 0)
 
@@ -48,17 +56,8 @@ class TestvsCompetitors:
         self.num_nodes = kwargs.get('num_nodes', 10)
         self.num_edges = kwargs.get('num_edges', 20)
         self.num_flows = kwargs.get('num_flows', 20)
-        self.num_actions = kwargs.get('num_actions', 4)
+        # self.num_actions = kwargs.get('num_actions', 4)
 
-        data = {
-            'diamond_delay': 0,
-            'diamond_rates': 0,
-            'grrl_delay': 0,
-            'grrl_rates': 0,
-        }
-        for c in self.competitors.keys():
-            data[f"{c}_delay"] = 0
-            data[f"{c}_rates"] = 0
 
         for episode in range(self.num_episodes):
 
@@ -66,73 +65,119 @@ class TestvsCompetitors:
             seed = SEED + (episode + 1) + self.episode_from + 1
 
             # generate env
-            env,slotted_env = generate_env( num_nodes=self.num_nodes,
-                                            num_edges=self.num_edges,
-                                            num_actions=self.num_actions,
-                                            num_flows=self.num_flows,
-                                            min_flow_demand=kwargs.get('min_flow_demand', 100),
-                                            max_flow_demand=kwargs.get('max_flow_demand', 200),
-                                            min_capacity=kwargs.get('min_capacity', 200),
-                                            max_capacity=kwargs.get('max_capacity', 500),
-                                            seed=seed,
-                                            graph_mode=kwargs.get('graph_mode', 'random'),
-                                            trx_power_mode=kwargs.get('trx_power_mode', 'equal'),
-                                            rayleigh_scale=kwargs.get('rayleigh_scale'),
-                                            max_trx_power=kwargs.get('max_trx_power'),
-                                            channel_gain=kwargs.get('channel_gain'))
+            adjacency,capacity_matrix,interference_matrix,positions,flows = generate_env(   num_nodes=self.num_nodes,
+                                                                                            num_edges=self.num_edges,
+                                                                                            num_actions=self.action_size,
+                                                                                            num_flows=self.num_flows,
+                                                                                            min_flow_demand=kwargs.get('min_flow_demand', int(3* 1e6)),
+                                                                                            max_flow_demand=kwargs.get('max_flow_demand', int(100 * 1e6)),
+                                                                                            min_capacity=kwargs.get('min_capacity', int(1e5)),
+                                                                                            max_capacity=kwargs.get('max_capacity', int(1e6)),
+                                                                                            seed=seed,
+                                                                                            graph_mode=kwargs.get('graph_mode', 'random'),
+                                                                                            trx_power_mode=kwargs.get('trx_power_mode', 'equal'),
+                                                                                            rayleigh_scale=kwargs.get('rayleigh_scale'),
+                                                                                            max_trx_power=kwargs.get('max_trx_power'),
+                                                                                            channel_gain=kwargs.get('channel_gain'))
 
-            # test DIAMOND
-            diamond_paths, grrl_rates_data, grrl_delay_data = self.diamond(slotted_env, grrl_data=True)
-            # diamond_delay_data = env.get_delay_data()
-            # diamond_rates_data = env.get_rates_data()
-            # data['diamond_delay'] += np.max(diamond_delay_data['delay_per_flow'])
-            # data['diamond_rates'] += (diamond_rates_data['sum_flow_rates'] / self.num_flows)
-            # data['grrl_delay'] += np.max(grrl_delay_data['delay_per_flow'])
-            # data['grrl_rates'] += (grrl_rates_data['sum_flow_rates'] / self.num_flows)
+            slotted_env = SlottedGraphEnvPower( adjacency_matrix=adjacency,
+                                                bandwidth_matrix=capacity_matrix,
+                                                interference_matrix=interference_matrix,
+                                                flows=flows,
+                                                node_positions=positions,
+                                                k=self.action_size,
+                                                reward_weights=self.reward_weights,
+                                                telescopic_reward = True,
+                                                direction = 'minimize',
+                                                slot_duration = int(self.slot_duration / self.Simulation_Time_Resolution),          # [in SEC ]
+                                                Tot_num_of_timeslots = self.Tot_num_of_timeslots,         # [num of time slots]
+                                                render_mode = True,
+                                                trx_power_mode='gain',
+                                                channel_gain = 1,
+                                                # channel_manual_gain = [100,200,3,400,500,600],
+                                                simualte_residauls = True,
+                                                Simulation_Time_Resolution = self.Simulation_Time_Resolution,
+                                                is_slotted = True)
 
-            # test SlottedDIAMOND
-            diamond_paths, slotted_grrl_rates_data, slotted_grrl_delay_data = self.slotted_diamond(slotted_env, grrl_data=True)
-            # slotted_diamond_delay_data = env.get_delay_data()
-            # slotted_diamond_rates_data = env.get_rates_data()
-            # data['diamond_delay'] += np.max(diamond_delay_data['delay_per_flow'])
-            # data['diamond_rates'] += (diamond_rates_data['sum_flow_rates'] / self.num_flows)
-            # data['grrl_delay'] += np.max(grrl_delay_data['delay_per_flow'])
-            # data['grrl_rates'] += (grrl_rates_data['sum_flow_rates'] / self.num_flows)
+            UNslotted_env = SlottedGraphEnvPower( adjacency_matrix=adjacency,
+                                                bandwidth_matrix=capacity_matrix,
+                                                interference_matrix=interference_matrix,
+                                                flows=flows,
+                                                node_positions=positions,
+                                                k=self.action_size,
+                                                reward_weights=self.reward_weights,
+                                                telescopic_reward = False,
+                                                direction = 'minimize',
+                                                slot_duration = int( (self.slot_duration*self.Tot_num_of_timeslots) / self.Simulation_Time_Resolution),          # [in SEC]
+                                                Tot_num_of_timeslots = 1, # [in Minutes]
+                                                render_mode = False,
+                                                trx_power_mode='gain',
+                                                channel_gain = 1,
+                                                # channel_manual_gain = [100,200,3,400,500,600],
+                                                simualte_residauls = False,
+                                                Simulation_Time_Resolution = self.Simulation_Time_Resolution,
+                                                is_slotted = False) 
 
-            # competitors
-            for name, comp in zip(self.competitors.keys(), self.competitors.values()):
-                paths, reward, delay_data, rates_data = comp.run(env, seed)
-                data[f"{name}_delay"] += np.max(delay_data['delay_per_flow'])
-                data[f"{name}_rates"] += (rates_data['sum_flow_rates'] / self.num_flows)
 
-        # average
-        for d in data:
-            data[d] /= self.num_episodes
+            slotted_diamond = SlottedDIAMOND(grrl_model_path=self.MODEL_PATH)
+            
+            Tot_rates_sloted = slotted_diamond(slotted_env, grrl_data=False)
+            Tot_rates_UNslotted = slotted_diamond(UNslotted_env, grrl_data=False)
 
-        print(f"==========================================================================================")
-        print(
-            f"(V={num_nodes}, E={num_edges}, N={num_flows}, k={num_actions}) {[f'{c}: {data[c]:.3f}' for c in data]}")
 
-        labels = ["DIAMOND", "GRRL"] + list(self.competitors.keys())
+            # plot rates
+            time_axis_in_resulotion = [i * self.Simulation_Time_Resolution for i in range(1,len(Tot_rates_sloted)+1)] # This time axis is a samples of each Simulation_Time_Resolution
+            # we want to avarge rates so that we have time axis sampled in seconds (this way spike due to the residual will be smoothed)
+            time_axis_in_seconds = [i  for i in range(1,int(self.slot_duration*self.Tot_num_of_timeslots)+1)]
 
-        return data, labels
+            interpolator_sloted = interp1d(time_axis_in_resulotion, Tot_rates_sloted, kind='linear')
+            Tot_rates_sloted_interpolated = interpolator_sloted(time_axis_in_seconds)
+
+            interpolator_unsloted = interp1d(time_axis_in_resulotion, Tot_rates_UNslotted, kind='linear')
+            Tot_rates_Unsloted_interpolated = interpolator_unsloted(time_axis_in_seconds)
+
+            plt.figure()
+            plt.plot(time_axis_in_seconds, Tot_rates_sloted_interpolated, linestyle='-', color='b', label='Slotted Avg Rate [Avg over all flows]')
+            if np.isnan(Tot_rates_sloted_interpolated).any():
+                nan_index = np.where(np.isnan(Tot_rates_sloted_interpolated))[0][0]
+            else:
+                nan_index = len(Tot_rates_sloted_interpolated)
+            plt.axvline(x=nan_index, color='b', linestyle='--', label='Slotted flows are done')
+
+            plt.plot(time_axis_in_seconds, Tot_rates_Unsloted_interpolated, linestyle='-', color='r', label='UnSlotted Avg Rate [Avg over all flows]')
+            if np.isnan(Tot_rates_Unsloted_interpolated).any():
+                nan_index = np.where(np.isnan(Tot_rates_Unsloted_interpolated))[0][0]
+            else:
+                nan_index = len(Tot_rates_Unsloted_interpolated)
+            plt.axvline(x=nan_index, color='r', linestyle='--', label='UnSlotted flows are done')
+
+            # Add labels and title
+            plt.xlabel('Time (seconds)')
+            plt.ylabel('Average Rate [bps]')
+            plt.title('Average Rates Over Time')
+            plt.legend()
+
+            # Show the plot
+            plt.savefig(f'DIAMOND/result_average_rates_over_time{seed}.png')
+
+
+        return
 
 
 if __name__ == "__main__":
 
-    BASE_PATH = os.path.join("..", "results", "inference_vs_competitors")
-    MODEL_PATH = os.path.join("DIAMOND", "pretrained", "model_20221113_212726_480.pt")
-    timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-    script_path = os.path.abspath(__file__)
+    # BASE_PATH = os.path.join("..", "results", "inference_vs_competitors")
+    # MODEL_PATH = os.path.join("DIAMOND", "pretrained", "model_20221113_212726_480.pt")
+    # timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+    # script_path = os.path.abspath(__file__)
 
     # params
-    num_nodes = 60  # 30
-    num_edges = 90  # 50
-    num_actions = 4
+    num_nodes = 15  # 30
+    num_edges = 25  # 50
     temperature = 1.2
     num_episodes = 1
     episode_from = 7500
-    nb3r_steps = 100
+    # nb3r_steps = 100
 
     trx_power_mode = 'equal'
     rayleigh_scale = 1
@@ -151,36 +196,36 @@ if __name__ == "__main__":
 
             for num_flows in [5, 10, 20, 30, 40, 50, 60, 70, 80, 90, 100, 120, 150, 200] if GRAPH_MODE == 'random' else \
                              [5, 10, 20, 30, 40, 50, 60, 70, 80, 90]:
-                alg = TestvsCompetitors(grrl_model_path=MODEL_PATH, num_episodes=num_episodes, episode_from=episode_from,
-                                        temperature=temperature, nb3r_steps=nb3r_steps)
+                alg = TestvsCompetitors(num_episodes=num_episodes, episode_from=episode_from,
+                                        temperature=temperature)
 
-                data, labels = alg(num_nodes=num_nodes, num_edges=num_edges, num_flows=num_flows, num_actions=num_actions,
+                data, labels = alg(num_nodes=num_nodes, num_edges=num_edges, num_flows=num_flows,
                                    graph_mode=GRAPH_MODE,
                                    trx_power_mode=trx_power_mode, rayleigh_scale=rayleigh_scale, max_trx_power=max_trx_power, channel_gain=channel_gain)
 
-                data_rates.append([int(num_flows)] + [data[x] for x in list(filter(lambda x: "rates" in x, data.keys()))])
-                data_delay.append([int(num_flows)] + [data[x] for x in list(filter(lambda x: "delay" in x, data.keys()))])
+    #             data_rates.append([int(num_flows)] + [data[x] for x in list(filter(lambda x: "rates" in x, data.keys()))])
+    #             data_delay.append([int(num_flows)] + [data[x] for x in list(filter(lambda x: "delay" in x, data.keys()))])
 
-            curr_path = os.path.join(BASE_PATH, timestamp, GRAPH_MODE, trx_power_mode)
-            os.makedirs(curr_path)
-            shutil.copy(src=script_path, dst=os.path.join(curr_path, os.path.split(script_path)[1]))
+    #         curr_path = os.path.join(BASE_PATH, timestamp, GRAPH_MODE, trx_power_mode)
+    #         os.makedirs(curr_path)
+    #         shutil.copy(src=script_path, dst=os.path.join(curr_path, os.path.split(script_path)[1]))
 
-            with open(os.path.join(curr_path, f"{GRAPH_MODE}_{trx_power_mode}_rates.csv"), 'w') as f:
-                f.writelines("# " + trx_power_mode + '\n')
-                f.writelines("# " + GRAPH_MODE + '\n')
-                f.writelines("# " + f"k={num_actions}, V={num_nodes}, E={num_edges}" + '\n')
-                f.writelines("# " + "rates" + '\n')
-                f.writelines('\n')
-                f.writelines(",".join(["N"] + labels) + '\n')
-                np.savetxt(f, np.array(data_rates), delimiter=',', fmt=','.join(['%i'] + ['%1.3f'] * len(labels)))
+    #         with open(os.path.join(curr_path, f"{GRAPH_MODE}_{trx_power_mode}_rates.csv"), 'w') as f:
+    #             f.writelines("# " + trx_power_mode + '\n')
+    #             f.writelines("# " + GRAPH_MODE + '\n')
+    #             f.writelines("# " + f"k={num_actions}, V={num_nodes}, E={num_edges}" + '\n')
+    #             f.writelines("# " + "rates" + '\n')
+    #             f.writelines('\n')
+    #             f.writelines(",".join(["N"] + labels) + '\n')
+    #             np.savetxt(f, np.array(data_rates), delimiter=',', fmt=','.join(['%i'] + ['%1.3f'] * len(labels)))
 
-            with open(os.path.join(curr_path, f"{GRAPH_MODE}_{trx_power_mode}_delay.csv"), 'w') as f:
-                f.writelines("# " + trx_power_mode + '\n')
-                f.writelines("# " + GRAPH_MODE + '\n')
-                f.writelines("# " + f"k={num_actions}, V={num_nodes}, E={num_edges}" + '\n')
-                f.writelines("# " + "delay" + '\n')
-                f.writelines('\n')
-                f.writelines(",".join(["N"] + labels) + '\n')
-                np.savetxt(f, np.array(data_delay), delimiter=',', fmt=','.join(['%i'] + ['%1.3f'] * len(labels)))
+    #         with open(os.path.join(curr_path, f"{GRAPH_MODE}_{trx_power_mode}_delay.csv"), 'w') as f:
+    #             f.writelines("# " + trx_power_mode + '\n')
+    #             f.writelines("# " + GRAPH_MODE + '\n')
+    #             f.writelines("# " + f"k={num_actions}, V={num_nodes}, E={num_edges}" + '\n')
+    #             f.writelines("# " + "delay" + '\n')
+    #             f.writelines('\n')
+    #             f.writelines(",".join(["N"] + labels) + '\n')
+    #             np.savetxt(f, np.array(data_delay), delimiter=',', fmt=','.join(['%i'] + ['%1.3f'] * len(labels)))
 
-    print('done')
+    # print('done')

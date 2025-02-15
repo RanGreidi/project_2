@@ -14,11 +14,13 @@ def _get_random_flows(num_nodes, num_flows, demands=[100], seed=1):
     """
     random.seed(seed)
     result = []
-    for _ in range(num_flows):
+    for indx in range(num_flows):
         src, dst = random.sample(range(num_nodes), 2)
         f = {"source": src,
-             "destination": dst,
-             "packets": random.choice(demands)}
+            "destination": dst,
+            "packets": float(random.choice(demands)),
+            'flow_idx': indx ,
+            'constant_flow_name': indx}
         result.append(f)
     return result
 
@@ -93,26 +95,4 @@ def generate_env(num_nodes=10,
     # interference matrix
     interference_matrix = np.ones((num_nodes, num_nodes)) - np.eye(num_nodes)
 
-    env = GraphEnv(adjacency_matrix=adjacency,
-                   bandwidth_matrix=capacity_matrix,
-                   interference_matrix=interference_matrix,
-                   node_positions=positions,
-                   flows=flows,
-                   k=num_actions,
-                   direction=direction,
-                   reward_balance=reward_balance,
-                   seed=seed,
-                   **kwargs)
-
-    slotted_env = SlottedGraphEnvPower(adjacency_matrix=adjacency,
-                   bandwidth_matrix=capacity_matrix,
-                   interference_matrix=interference_matrix,
-                   node_positions=positions,
-                   flows=flows,
-                   k=num_actions,
-                   direction=direction,
-                   reward_balance=reward_balance,
-                   seed=seed,
-                   **kwargs)
-
-    return env,slotted_env
+    return adjacency,capacity_matrix,interference_matrix,positions,flows
