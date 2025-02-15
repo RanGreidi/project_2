@@ -541,6 +541,7 @@ class SlottedGraphEnvPower:
 
 
         counter_for_same_link = Counter(self.eids[link['link']] for link in active_links if 'link' in link)
+        counter_for_same_link = Counter({key: value + 1 for key, value in counter_for_same_link.items()}) # becaouse: if one line start to use the link, we want to next capcaity list to be already divided by 2
         current_link_sharing_list = [counter_for_same_link.get(i, 1) for i in range(len(self.current_link_capacity))]  # list of how many flows share each link
         current_link_capacity_after_sharing_devision = self.current_link_capacity / current_link_sharing_list  # interference after sharing the link
         # update list for all links interefences in order to avarge later
@@ -622,9 +623,9 @@ class SlottedGraphEnvPower:
             if self.total_time_stemp_in_single_slot < self.slot_duration: 
                 active_links, hop_metadata = self._transmit_singe_timestep(active_links, self.total_time_stemp_in_single_slot)
                 
-                if self.render_mode and len(self.allocated) == len(self.flows): # plot rate only when all flows are allocated
-                    plot_rate = 1 if len(self.allocated) == len(self.flows) else 0
-                    self.show_graph(active_links, self.total_time_stemp_in_single_slot, plot_rate ,self.total_time_stemp_in_single_slot)
+                # if self.render_mode and len(self.allocated) == len(self.flows): # plot rate only when all flows are allocated
+                plot_rate = 1 if len(self.allocated) == len(self.flows) else 0
+                self.show_graph(active_links, self.total_time_stemp_in_single_slot, plot_rate ,self.total_time_stemp_in_single_slot)
                 
                 metadata.append(hop_metadata)
                 self.total_time_stemp_in_single_slot += 1       
@@ -877,7 +878,7 @@ class SlottedGraphEnvPower:
         # interference
         if self.current_link_interference_list_4EachTimeStep:
             interference = self.edge_list_to_adj_mat(self.current_link_interference_list_4EachTimeStep[-1]) # take the last interference
-        else: 
+        else: # for reset
              interference = self.edge_list_to_adj_mat(self.cumulative_link_interference)   
             #  interference = np.zeros((self.num_nodes, self.num_nodes))  # Todo: ask ran why zeros
         self.current_link_interference_list_4EachTimeStep = [] # reset for the next time slot
@@ -885,7 +886,7 @@ class SlottedGraphEnvPower:
         #normalized_capacity = self.edge_list_to_adj_mat(self.current_link_capacity)
         if self.current_link_capacity_list_4EachTimeStep:
             normalized_capacity = self.edge_list_to_adj_mat(self.current_link_capacity_list_4EachTimeStep[-1]) # take the last capacity
-        else: 
+        else: # for reset
              normalized_capacity = self.edge_list_to_adj_mat(self.current_link_capacity)  
             #  normalized_capacity = np.zeros((self.num_nodes, self.num_nodes)) # Todo: 
         self.current_link_capacity_list_4EachTimeStep = [] # reset for the next time slot
@@ -915,13 +916,13 @@ class SlottedGraphEnvPower:
 
         # demand
         if free_actions: # if we are not in the last time step of the time slot, than we can calculate the demand
-            # normalized_demand = np.array(demand).astype(np.float32) / self.max_demand
-            normalized_demand = np.array(demand).astype(np.float32) 
+            normalized_demand = np.array(demand).astype(np.float32) / self.max_demand
+            # normalized_demand = np.array(demand).astype(np.float32) 
         else: # if we are in the last time step of the time slot, return initialzed demand
             normalized_demand = None
         
         if self.is_slotted:
-            normalized_demand = (1e30) * np.ones_like(normalized_demand) # demand = inf for every new flow
+            normalized_demand = (1e0) * np.ones_like(normalized_demand) # demand = inf for every new flow
 
         interference_deb = state_matrixes[:,:,0]
         normalized_capacity_deb = state_matrixes[:,:,1]
