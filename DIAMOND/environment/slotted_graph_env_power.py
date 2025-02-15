@@ -32,6 +32,7 @@ class SlottedGraphEnvPower:
                  Tot_num_of_timeslots = 60,   # [Minutes]
                  simualte_residauls = True,
                  Simulation_Time_Resolution = 1e-3,
+                 is_slotted = True,
                  **kwargs):
         
         
@@ -101,6 +102,7 @@ class SlottedGraphEnvPower:
         self.render_mode = render_mode
         self.simualte_residauls = simualte_residauls
         self.Simulation_Time_Resolution = Simulation_Time_Resolution
+        self.is_slotted = is_slotted
         # initialization once
         self.__create_graph()
         self.__calc_possible_actions()
@@ -132,18 +134,18 @@ class SlottedGraphEnvPower:
                 if 'residual_name' not in a:
                     u,v = a['link']
                     if (u,v) in label_dict:
-                        flow_name = f"\n flow_idx: {a['flow_idx']}"
+                        flow_name = f"\n flow_idx: {a['constant_flow_name']}"
                         label_dict[(u,v)] += (flow_name + f"\n remaining packet: {round(a['packets'],2)} \n Avg. Rate: {round(self.routing_metrics['rate']['rate_per_flow'][a['flow_idx']][total_time_stemp_in_single_slot], 2)}")  
                     else:
-                        flow_name = f"\n flow_idx: {a['flow_idx']}"
+                        flow_name = f"\n flow_idx: {a['constant_flow_name']}"
                         label_dict.update({(u,v): flow_name + f"\n remaining packet: {round(a['packets'],2)} \n Avg. Rate: {round(self.routing_metrics['rate']['rate_per_flow'][a['flow_idx']][total_time_stemp_in_single_slot],2)}"})
                 else:
                     u,v = a['link']
                     if (u,v) in residual_dict:
-                        flow_name =f"\n res: {a['residual_name']}(flow{a['flow_idx']})"
+                        flow_name =f"\n res: {a['residual_name']}(flow{a['constant_flow_name']})"
                         residual_dict[(u,v)] += flow_name + f"\n remaining packet: {round(a['packets'],2)}"
                     else:
-                        flow_name = f"\n res: {a['residual_name']}(flow{a['flow_idx']})"
+                        flow_name = f"\n res: {a['residual_name']}(flow{a['constant_flow_name']})"
                         residual_dict.update({(u,v): flow_name + f"\n remaining packet: {round(a['packets'],2)}"})
             #add rates table to graph
             flow_rates = self.routing_metrics['rate']['rate_per_flow'][:,total_time_stemp_in_single_slot].tolist()    
@@ -154,18 +156,18 @@ class SlottedGraphEnvPower:
                 if 'residual_name' not in a:
                     u,v = a['link']
                     if (u,v) in label_dict:
-                        flow_name = f"\n flow_idx: {a['flow_idx']}"
+                        flow_name = f"\n flow_idx: {a['constant_flow_name']}"
                         label_dict[(u,v)] += flow_name+ f"\n remaining packet: {round(a['packets'],2)}"
                     else:
-                        flow_name = f"\n flow_idx: {a['flow_idx']}"
+                        flow_name = f"\n flow_idx: {a['constant_flow_name']}"
                         label_dict.update({(u,v): flow_name + f"\n remaining packet: {round(a['packets'],2)}"})
                 else:  
                     u,v = a['link']
                     if (u,v) in residual_dict:
-                        flow_name = f"\n res: {a['residual_name']}(flow{a['flow_idx']})"
+                        flow_name = f"\n res: {a['residual_name']}(flow{a['constant_flow_name']})"
                         residual_dict[(u,v)] += flow_name + f"\n remaining packet: {round(a['packets'],2)}"
                     else:
-                        flow_name = f"\n res: {a['residual_name']}(flow{a['flow_idx']})"
+                        flow_name = f"\n res: {a['residual_name']}(flow{a['constant_flow_name']})"
                         residual_dict.update({(u,v): flow_name + f"\n remaining packet: {round(a['packets'],2)}"})
             #add rates table to graph
             flow_rates = self.routing_metrics['rate']['rate_per_flow'][:,total_time_stemp_in_single_slot].tolist()    
@@ -189,8 +191,8 @@ class SlottedGraphEnvPower:
         #         if u != v:
         #             if (u,v) in label_dict:
         #                 label_dict[(u,v)] += (f"\n Total channel Bandwidth: {bandwidth[u,v]}")
-        
-        plot_graph(self.graph, self.graph_pos, label_dict,residual_dict, total_time_slots,table_data,self.Simulation_Time_Resolution)
+        if not (label_dict == {} and residual_dict == {}):
+            plot_graph(self.graph, self.graph_pos, label_dict,residual_dict, total_time_slots,table_data,self.Simulation_Time_Resolution,self.is_slotted,self.slot_num)
         
     def gen_edge_data(self):
         self.eids = dict()
@@ -388,6 +390,8 @@ class SlottedGraphEnvPower:
         ## end produce action dict ###
         
         # 1. update interference on the link
+        self.current_link_interference = np.zeros_like(self.current_link_interference)      # reset current_link_interference for __update_interference
+        self.current_link_capacity = self.bandwidth_edge_list.copy()                        # reset current_link_capacity for __update_interference
         for a in action_dict.values():
             u = a["link"][0]
             v = a["link"][1]
@@ -527,9 +531,13 @@ class SlottedGraphEnvPower:
                     if self.routing_metrics['rate']['rate_per_flow'][flow_idx][self.total_time_stemp_in_single_slot] > rate_in_bps:
                         self.routing_metrics['rate']['rate_per_flow'][flow_idx][self.total_time_stemp_in_single_slot] = rate_in_bps # this is the rate in a single time step (which how much packet were deliverd in a single time resolution)
 
+
+        counter_for_same_link = Counter(self.eids[link['link']] for link in active_links if 'link' in link)
+        current_link_sharing_list = [counter_for_same_link.get(i, 1) for i in range(len(self.current_link_capacity))]  # list of how many flows share each link
+        current_link_capacity_after_sharing_devision = self.current_link_capacity / current_link_sharing_list  # interference after sharing the link
         # update list for all links interefences in order to avarge later
         self.current_link_interference_list_4EachTimeStep.append(self.current_link_interference)
-        self.current_link_capacity_list_4EachTimeStep.append(self.current_link_capacity)
+        self.current_link_capacity_list_4EachTimeStep.append(current_link_capacity_after_sharing_devision)
         
         # update delay metric #TODO is delay calc this currect?
         active_flows_idx = [l['flow_idx'] for l in active_links if 'residual_name' not in l]
@@ -578,7 +586,8 @@ class SlottedGraphEnvPower:
             # active_links is a list of dicts with srs,dst,rout,packet. it changes throughut an episode
             active_links = [dict(flow_idx=f_idx,
                                  link=(f['path'][0], f['path'][1]),
-                                 packets=f['packets'])                   for i,(f_idx, f) in enumerate(active_flows)]
+                                 packets=f['packets'],
+                                 constant_flow_name=f['constant_flow_name'])                                      for i,(f_idx, f) in enumerate(active_flows)]
         else: active_links = []
 
 
@@ -895,13 +904,17 @@ class SlottedGraphEnvPower:
 
         # demand
         if free_actions: # if we are not in the last time step of the time slot, than we can calculate the demand
-            normalized_demand = np.array(demand).astype(np.float32) / self.max_demand
+            # normalized_demand = np.array(demand).astype(np.float32) / self.max_demand
+            normalized_demand = np.array(demand).astype(np.float32) 
         else: # if we are in the last time step of the time slot, return initialzed demand
             normalized_demand = None
+        
+        if self.is_slotted:
+            normalized_demand = (1e30) * np.ones_like(normalized_demand) # demand = inf for every new flow
 
-        # if self.tf_env:
-        #     return self.__get_tf_state()
-
+        interference_deb = state_matrixes[:,:,0]
+        normalized_capacity_deb = state_matrixes[:,:,1]
+        last_action_deb = state_matrixes[:,:,2]
         return state_matrixes, edges, free_paths, free_paths_idx, normalized_demand
     
     def reset(self):
@@ -937,56 +950,56 @@ class SlottedGraphEnvPower:
         return next_state, reward
 
 
-if __name__ == "__main__":
-    """sanity check for env and reward"""
-    reward_weights = dict(rate_weight=0.5, delay_weight=0, interference_weight=0, capacity_reduction_weight=0)
+# if __name__ == "__main__":
+    # """sanity check for env and reward"""
+    # reward_weights = dict(rate_weight=0.5, delay_weight=0, interference_weight=0, capacity_reduction_weight=0)
 
-    # number of nodes
-    N = 4
+    # # number of nodes
+    # N = 4
 
-    # Adjacency matrix
-    # create 3x3 mesh graph
-    A = np.array([[0, 1, 1, 1],  #means how connects to who
-                  [1, 0, 1, 1],
-                  [1, 1, 0, 1],
-                  [1, 1, 1, 0]])
+    # # Adjacency matrix
+    # # create 3x3 mesh graph
+    # A = np.array([[0, 1, 1, 1],  #means how connects to who
+    #               [1, 0, 1, 1],
+    #               [1, 1, 0, 1],
+    #               [1, 1, 1, 0]])
 
     
-    # P = [(0, 0), (0, 1), (0, 2),                #the position of each node
-    #      (1, 0), (1, 1), (1, 2),
-    #      (2, 0), (2, 1), (2, 2)]
+    # # P = [(0, 0), (0, 1), (0, 2),                #the position of each node
+    # #      (1, 0), (1, 1), (1, 2),
+    # #      (2, 0), (2, 1), (2, 2)]
 
-    P = [(0, 0), (0, 1),                 #the position of each node
-         (1, 0), (1, 1)] 
+    # P = [(0, 0), (0, 1),                 #the position of each node
+    #      (1, 0), (1, 1)] 
 
-    # capacity matrix
-    C = 100 * np.ones((N, N))
-    C = 100 * np.array([[1, 1, 1, 1],  #means how connects to who
-                        [1, 1, 1, 1],
-                        [1, 1, 1, 1],
-                        [1, 1, 1, 1]])
+    # # capacity matrix
+    # C = 100 * np.ones((N, N))
+    # C = 100 * np.array([[1, 1, 1, 1],  #means how connects to who
+    #                     [1, 1, 1, 1],
+    #                     [1, 1, 1, 1],
+    #                     [1, 1, 1, 1]])
     
-    # interference matrix
-    I = np.ones((N, N)) - np.eye(N)
+    # # interference matrix
+    # I = np.ones((N, N)) - np.eye(N)
 
-    # number of paths to choose from
-    action_size = 4                         #search space limitaions?
+    # # number of paths to choose from
+    # action_size = 4                         #search space limitaions?
 
-    # flow demands
-    F = [
-        {"source": 0, "destination": 3, "packets": 200, "time_constrain": 10},
-        {"source": 0, "destination": 3, "packets": 200, "time_constrain": 10}
-    ]
+    # # flow demands
+    # F = [
+    #     {"source": 0, "destination": 3, "packets": 200, "time_constrain": 10},
+    #     {"source": 0, "destination": 3, "packets": 200, "time_constrain": 10}
+    # ]
 
-    env = SlottedGraphEnvPower( adjacency_matrix=A,
-                                bandwidth_matrix=C,
-                                flows=F,
-                                node_positions=P,
-                                k=action_size,
-                                reward_weights=reward_weights,
-                                telescopic_reward = True,
-                                direction = 'minimize',
-                                render_mode = True)
+    # env = SlottedGraphEnvPower( adjacency_matrix=A,
+    #                             bandwidth_matrix=C,
+    #                             flows=F,
+    #                             node_positions=P,
+    #                             k=action_size,
+    #                             reward_weights=reward_weights,
+    #                             telescopic_reward = True,
+    #                             direction = 'minimize',
+    #                             render_mode = True)
 
     # adj_matrix, edges, free_paths, free_paths_idx, _ = env.reset()
     # reward = 0
@@ -1008,30 +1021,30 @@ if __name__ == "__main__":
     # print(env.routing_metrics)
     # print("-" * 20)
     
-    adj_matrix, edges, free_paths, free_paths_idx, normalized_demand = env.reset()
-    possible_actions = free_paths.copy()
-    best_score = -sys.maxsize
-    best_routs = []
-    best_action = -1
-    for i in range(action_size):
-        for j in range(action_size):
-            state_debug = env.reset() # interfernce map = state_debug[0][:,:,0]
-            reward = 0
-            a0 = [0, i]
-            state_debug, r = env.step(action=a0)
-            reward += r
-            a1 = [1, j]
-            state_debug, r = env.step(action=a1)
-            reward += r
-            routs = [possible_actions[i], possible_actions[j + action_size]]
-            print(
-                f"action {[i, j]} with routs {routs} -> reward: {reward} (rates: {env.get_rates_data().get('avg_flow_rate')}, delay: {env.get_delay_data().get('end_to_end_delay_per_flow')})")
+    # adj_matrix, edges, free_paths, free_paths_idx, normalized_demand = env.reset()
+    # possible_actions = free_paths.copy()
+    # best_score = -sys.maxsize
+    # best_routs = []
+    # best_action = -1
+    # for i in range(action_size):
+    #     for j in range(action_size):
+    #         state_debug = env.reset() # interfernce map = state_debug[0][:,:,0]
+    #         reward = 0
+    #         a0 = [0, i]
+    #         state_debug, r = env.step(action=a0)
+    #         reward += r
+    #         a1 = [1, j]
+    #         state_debug, r = env.step(action=a1)
+    #         reward += r
+    #         routs = [possible_actions[i], possible_actions[j + action_size]]
+    #         print(
+    #             f"action {[i, j]} with routs {routs} -> reward: {reward} (rates: {env.get_rates_data().get('avg_flow_rate')}, delay: {env.get_delay_data().get('end_to_end_delay_per_flow')})")
 
-            if reward > best_score:
-                best_score = reward
-                best_routs = routs.copy()
-                best_action = [i, j]
+    #         if reward > best_score:
+    #             best_score = reward
+    #             best_routs = routs.copy()
+    #             best_action = [i, j]
 
-    print("*****************************")
-    print("Optimal Solution:")
-    print(f"action {best_action} with routs {best_routs} -> reward: {best_score}")
+    # print("*****************************")
+    # print("Optimal Solution:")
+    # print(f"action {best_action} with routs {best_routs} -> reward: {best_score}")

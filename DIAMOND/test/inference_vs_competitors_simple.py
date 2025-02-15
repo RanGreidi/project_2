@@ -28,8 +28,8 @@ if __name__ == "__main__":
     # ------------------------------------------------------------------------
     Simulation_Time_Resolution = 1e-1       # miliseconds (i.e. each time step is a milisecond - this is the duration of each time step in [SEC])
     BW_value_in_Hertz = 1e6                   # wanted BW in Hertz
-    slot_duration = 4                     # [SEC] 
-    Tot_num_of_timeslots = 3               # [num of time slots]
+    slot_duration = 1                     # [SEC] 
+    Tot_num_of_timeslots = 1000               # [num of time slots]
     #------------------------------------------------------------------------
 
     # # number of nodes
@@ -57,16 +57,26 @@ if __name__ == "__main__":
     N = 9
 
     # Adjacency matrix
-    A = np.array([[0, 1, 0, 1, 1, 1, 1, 1, 0],
-                  [1, 0, 1, 1, 1, 0, 0, 0, 0],
-                  [0, 1, 0, 0, 0, 1, 0, 0, 0],
-                  [1, 1, 0, 0, 1, 0, 1, 0, 0],
-                  [1, 1, 0, 1, 0, 1, 0, 1, 0],
-                  [1, 0, 1, 0, 1, 0, 0, 0, 1],
-                  [1, 0, 0, 1, 0, 0, 0, 1, 0],
-                  [1, 0, 0, 0, 1, 0, 1, 0, 1],
-                  [0, 0, 0, 0, 0, 1, 0, 1, 0]])
-
+    
+    # A = np.array([[0, 1, 0, 1, 0, 0, 0, 0, 0],
+    #               [1, 0, 1, 0, 1, 0, 0, 0, 0],
+    #               [0, 1, 0, 0, 0, 1, 0, 0, 0],
+    #               [1, 0, 0, 0, 1, 0, 1, 0, 0],
+    #               [0, 1, 0, 1, 0, 1, 0, 1, 0],
+    #               [0, 0, 1, 0, 1, 0, 0, 0, 1],
+    #               [0, 0, 0, 1, 0, 0, 0, 1, 0],
+    #               [0, 0, 0, 0, 1, 0, 1, 0, 1],
+    #               [0, 0, 0, 0, 0, 1, 0, 1, 0]])
+    
+    A = np.array([[0, 1, 0, 1, 1, 1, 0, 1, 0],
+                 [1, 0, 1, 1, 1, 0, 0, 0, 0],
+                 [0, 1, 0, 0, 0, 1, 0, 0, 0],
+                 [1, 1, 0, 0, 1, 0, 1, 0, 0],
+                 [1, 1, 0, 1, 0, 1, 0, 1, 0],
+                 [1, 0, 1, 0, 1, 0, 0, 0, 1],
+                 [0, 0, 0, 1, 0, 0, 0, 1, 0],
+                 [1, 0, 0, 0, 1, 0, 1, 0, 1],
+                 [0, 0, 0, 0, 0, 1, 0, 1, 0]])   
     
     P = [(0.0, 0), (0.0, 0.01), (0.0, 0.02),
          (0.1, 0), (0.1, 0.01), (0.1, 0.02),
@@ -77,29 +87,31 @@ if __name__ == "__main__":
     #      (20, 0), (20, 10), (20, 20)]
     
     # BW matrix
-    C = BW_value_in_Hertz * np.ones((N, N)) * Simulation_Time_Resolution 
+    C = BW_value_in_Hertz * np.ones((N, N)) * Simulation_Time_Resolution
     #------------------------------------------------------------------------
 
 
     # number of paths to choose from
-    action_size = 30                      #search space limitaions?
+    action_size = 44                      #search space limitaions?
 
     # flow demands in KiloByte
-    F = [
-        {"source": 0, "destination": 8, "packets": 5  *1e5    , "time_constrain": 10 , 'flow_idx': 0 },
-        {"source": 0, "destination": 7, "packets": 100 *1e5    , "time_constrain": 10, 'flow_idx': 1},         #Packets [in Bits]  
-    ]
-
     # F = [
-    #     {"source": 0, "destination": 8, "packets": 1000    *1e6, "time_constrain": 10 , 'flow_idx': 0 },
-    #     {"source": 0, "destination": 7, "packets": 3000    *1e6, "time_constrain": 10, 'flow_idx': 1},         #Packets [in Bits]
-    #     {"source": 0, "destination": 6, "packets": 500  *1e6, "time_constrain": 10, 'flow_idx': 2},         #Packets [in Bits]
-    #     {"source": 0, "destination": 5, "packets": 200 *1e6, "time_constrain": 10, 'flow_idx': 3},
-    #     {"source": 0, "destination": 4, "packets": 50  *1e6, "time_constrain": 10 , 'flow_idx': 4 },
-    #     {"source": 0, "destination": 3, "packets": 10  *1e6, "time_constrain": 10, 'flow_idx': 5},         #Packets [in Bits]
-    #     {"source": 0, "destination": 2, "packets": 30  *1e6, "time_constrain": 10, 'flow_idx': 6},         #Packets [in Bits]
-    #     {"source": 0, "destination": 1, "packets": 40   *1e6, "time_constrain": 10, 'flow_idx': 7}
+    #     {"source": 0, "destination": 8, "packets": 100  *1e4    , "time_constrain": 10 , 'flow_idx': 0 },
+    #     {"source": 0, "destination": 4, "packets": 4 *1e4    , "time_constrain": 10, 'flow_idx': 1},         #Packets [in Bits] 
+    #     {"source": 0, "destination": 7, "packets": 3 *1e4    , "time_constrain": 10, 'flow_idx': 2},         #Packets [in Bits]   
+    #     {"source": 0, "destination": 6, "packets": 2 *1e4    , "time_constrain": 10, 'flow_idx': 3},
     # ]
+
+    F = [
+        {"source": 0, "destination": 8, "packets": 10    *1e3, "time_constrain": 10 , 'flow_idx': 0 , 'constant_flow_name': 0},
+        {"source": 0, "destination": 7, "packets": 17    *1e3, "time_constrain": 10, 'flow_idx': 1 , 'constant_flow_name': 1},         #Packets [in Bits]
+        {"source": 0, "destination": 6, "packets": 12  *1e3, "time_constrain": 10, 'flow_idx': 2 , 'constant_flow_name': 2},         #Packets [in Bits]
+        {"source": 0, "destination": 5, "packets": 18 *1e3, "time_constrain": 10, 'flow_idx': 3 , 'constant_flow_name': 3},
+        {"source": 0, "destination": 4, "packets": 15  *1e3, "time_constrain": 10 , 'flow_idx': 4 , 'constant_flow_name': 4},
+        {"source": 0, "destination": 3, "packets": 19  *1e3, "time_constrain": 10, 'flow_idx': 5 , 'constant_flow_name': 5},         #Packets [in Bits]
+        {"source": 0, "destination": 2, "packets": 17  *1e3, "time_constrain": 10, 'flow_idx': 6 , 'constant_flow_name': 6},         #Packets [in Bits]
+        {"source": 0, "destination": 1, "packets": 15   *1e3, "time_constrain": 10, 'flow_idx': 7 , 'constant_flow_name': 7}
+    ]
 
     slotted_env = SlottedGraphEnvPower( adjacency_matrix=A,
                                         bandwidth_matrix=C,
@@ -116,7 +128,8 @@ if __name__ == "__main__":
                                         channel_gain = 1,
                                         # channel_manual_gain = [100,200,3,400,500,600],
                                         simualte_residauls = True,
-                                        Simulation_Time_Resolution = Simulation_Time_Resolution)
+                                        Simulation_Time_Resolution = Simulation_Time_Resolution,
+                                        is_slotted = True)
 
     UNslotted_env = SlottedGraphEnvPower( adjacency_matrix=A,
                                         bandwidth_matrix=C,
@@ -128,12 +141,13 @@ if __name__ == "__main__":
                                         direction = 'minimize',
                                         slot_duration = int( (slot_duration*Tot_num_of_timeslots) / Simulation_Time_Resolution),          # [in SEC]
                                         Tot_num_of_timeslots = 1, # [in Minutes]
-                                        render_mode = False,
+                                        render_mode = True,
                                         trx_power_mode='gain',
                                         channel_gain = 1,
                                         # channel_manual_gain = [100,200,3,400,500,600],
                                         simualte_residauls = False,
-                                        Simulation_Time_Resolution = Simulation_Time_Resolution)    
+                                        Simulation_Time_Resolution = Simulation_Time_Resolution,
+                                        is_slotted = False)    
 
     slotted_diamond = SlottedDIAMOND(grrl_model_path=MODEL_PATH)
     
@@ -144,7 +158,7 @@ if __name__ == "__main__":
     # plot rates
     time_axis_in_resulotion = [i * Simulation_Time_Resolution for i in range(1,len(Tot_rates_sloted)+1)] # This time axis is a samples of each Simulation_Time_Resolution
     # we want to avarge rates so that we have time axis sampled in seconds (this way spike due to the residual will be smoothed)
-    time_axis_in_seconds = [i  for i in range(1,slot_duration*Tot_num_of_timeslots+1)]
+    time_axis_in_seconds = [i  for i in range(1,int(slot_duration*Tot_num_of_timeslots)+1)]
 
     interpolator_sloted = interp1d(time_axis_in_resulotion, Tot_rates_sloted, kind='linear')
     Tot_rates_sloted_interpolated = interpolator_sloted(time_axis_in_seconds)

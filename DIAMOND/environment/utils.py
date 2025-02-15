@@ -3,6 +3,7 @@ from matplotlib import pyplot as plt
 import networkx as nx
 import os
 import random
+from datetime import datetime
 
 def init_seed(seed):
     os.environ['PYTHONHASHSEED'] = str(seed)
@@ -380,7 +381,7 @@ def gen_grid_graph(n, special_edges_add=None, special_edges_remove=None):
 def shortest_path(G, s, d):
     return nx.shortest_path(G, source=s, target=d, weight='weight', method='dijkstra')
 
-def plot_graph(graph,graph_pos, labels,residual_label, total_time_slots,table_data,Simulation_Time_Resolution):
+def plot_graph(graph,graph_pos, labels,residual_label, total_time_slots,table_data,Simulation_Time_Resolution,is_slotted,slot_num):
     column_labels = ["Flow", "Rate [bps]"]
 
     # plot
@@ -395,7 +396,15 @@ def plot_graph(graph,graph_pos, labels,residual_label, total_time_slots,table_da
     nx.draw_networkx_edge_labels(graph, graph_pos, edge_labels=residual_label, font_color='blue',font_size=2.5, label_pos=0.7)
     comment = f"Time step [SEC]: {total_time_slots*Simulation_Time_Resolution}"
     plt.text(0.5, -0.1, comment, ha='center', va='center', transform=plt.gca().transAxes,fontsize=7)
-    plt.savefig('DIAMOND/result_graph.png',dpi=300)
+    
+    # now = datetime.now()
+    # current_time = now.strftime("%H:%M")
+    os.makedirs(f'DIAMOND/Debug/Slotted_graphs', exist_ok=True)
+    os.makedirs(f'DIAMOND/Debug/UnSlotted_graphs', exist_ok=True)
+    if is_slotted: 
+        plt.savefig(f'DIAMOND/Debug/Slotted_graphs/result_graph_{slot_num}_{total_time_slots}.png',dpi=300)
+    else: 
+        plt.savefig(f'DIAMOND/Debug/UnSlotted_graphs/result_graph{slot_num}_{total_time_slots}.png',dpi=300)
     plt.close()
     return
 
