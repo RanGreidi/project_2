@@ -42,6 +42,7 @@ class RandomBaseline:
 
         state, SlotRates_AvgOverFlows = env.end_of_slot_update()
         Tot_rates += (SlotRates_AvgOverFlows)
+
         print(f'{env.num_flows}/{len(env.original_flows)} Flow Alive\n')
 
         return paths, np.sum(rewards), Tot_rates  #, delay_data, rates_data
@@ -61,8 +62,15 @@ class RandomBaseline:
         best_paths = []
         for i in range(self.num_trials):
             paths, score, Tot_rates = self.random_episode()
-            if np.mean(Tot_rates) > best_average_rate:
-                best_average_rate = np.mean(Tot_rates)
+            try:  # If has None at the end take mean of not None elements
+                mean_rates = np.mean(Tot_rates)
+                print("there in No none index")
+            except TypeError:
+                mean_rates = np.mean(Tot_rates[:Tot_rates.index(None)])
+                print("there is None index")
+
+            if mean_rates > best_average_rate:
+                best_average_rate = mean_rates
                 best_Total_rates = Tot_rates
                 best_paths = paths
                 best_score = score

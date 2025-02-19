@@ -210,7 +210,7 @@ def calc_indevidual_minimum_capacity(self,a,action_dict,current_link_capacity):
         for b in action_dict.values():  # for each link that flow_in_current_link is in the action_dict
             if flow_in_current_link in b['flows_idxs']:  # if the flow is in the link
                 count = len(b['packets']) - len([p for p in b['packets'] if p == 0])  # counts how many transmit on the same current link
-                q = current_link_capacity[self.eids[b['link']]] / count  # c // count
+                q = current_link_capacity[self.eids[b['link']]] // count # c // count
                 if q < minumum_capacity:
                     minumum_capacity = q  # the bottleneck of the flow
 
@@ -285,7 +285,7 @@ def generate_random_graph(n, e, max_position=1,  seed=None):
         adjacency[i, j] = 1
         adjacency[j, i] = 1
 
-    g = nx.from_numpy_matrix(adjacency, create_using=nx.Graph)
+    g = nx.from_numpy_matrix(adjacency, create_using=nx.Graph)   # g = nx.from_numpy_array(adjacency, create_using=nx.Graph)
     for u, v, attr in g.edges(data=True):
         # set node position
         if g.nodes[u] == {}:
@@ -619,7 +619,7 @@ def plot_rates_multiple_algorithms(algo_names, algo_tot_rates, slotted_env, subf
         Tot_rates_interpolated = interpolator(time_axis_in_seconds)
 
         plt.plot(time_axis_in_seconds, Tot_rates_interpolated, linestyle='-', color=color,
-                 label=f'{algo_name} Avg Rate')
+                 label=f'{algo_name}')  # Avg Rate
 
         # Detect NaN values for stopping condition
         try:
@@ -627,16 +627,83 @@ def plot_rates_multiple_algorithms(algo_names, algo_tot_rates, slotted_env, subf
         except IndexError:
             nan_index = time_axis_in_seconds[-1]
 
-        plt.axvline(x=nan_index, color=color, linestyle='--', label=f'{algo_name} flows are done')
+        plt.axvline(x=nan_index, color=color, linestyle='--', label=f'flows are done')
 
     # Add labels and title
     plt.xlabel('Time (seconds)')
     plt.ylabel('Average Rate [bps]')
     plt.title('Average Rates Over Time')
-    plt.legend(loc='best', prop={'size': 8})
+    plt.legend(loc='best')  # prop={'size': 8}
     plt.grid(True)
 
     # Save or show the plot
     if save_arguments:
         plt.savefig(os.path.join(subfolder_path, 'average_rates_over_time.png'), dpi=300)
     plt.show()
+
+
+def interpolate_rates(slotted_env, tot_rates):
+
+    # Create time axes
+    time_axis_in_resolution = [i * slotted_env.Simulation_Time_Resolution for i in range(1, len(tot_rates) + 1)]
+    time_axis_in_seconds = [i for i in range(1, int(slotted_env.slot_duration * slotted_env.Simulation_Time_Resolution) * slotted_env.Tot_num_of_timeslots + 1)]
+
+    # Interpolation
+    interpolator = interp1d(time_axis_in_resolution, tot_rates, kind='linear')
+    Tot_rates_interpolated = interpolator(time_axis_in_seconds)
+
+    # Detect NaN values for stopping condition
+    try:
+        nan_index = np.where(np.isnan(Tot_rates_interpolated))[0][0]
+    except IndexError:
+        nan_index = time_axis_in_seconds[-1]
+
+    return Tot_rates_interpolated, nan_index
+
+
+def plot_algorithm_rates(flows, algo_names, algo_rates, save_arguments, subfolder_path):
+    """
+    Plots rates of multiple algorithms against flow numbers.
+
+    :param flows: List of flow numbers (X-axis).
+    :param algo_names: List of algorithm names.
+    :param algo_rates: List of lists, where each sublist contains rate values for each algorithm.
+    """
+
+    fig, ax = plt.subplots(figsize=(10, 5))  # Use ax1 for better control
+
+    # Define unique colors and markers
+    colors = ['b', 'r', 'darkviolet', 'orange', 'green', 'violet', 'k', 'y']
+    markers = ['o', 'p', '+', '*', '^', '+', 'p', 'v']
+
+    for idx, algo_name in enumerate(algo_names):
+        color = colors[idx % len(colors)]  # Cycle through colors
+        marker = markers[idx % len(markers)]  # Cycle through markers
+
+        # Extract rate values for the current algorithm
+        rates = [algo_rates[i][idx] for i in range(len(flows))]
+
+        # Plot with unique color, marker, and label
+        ax.plot(flows, rates, linestyle='-', color=color, marker=marker, markersize=6, label=algo_name)
+
+    ax.set_xticks(flows)
+    ax.set_xticklabels(flows, fontsize=10)
+
+    # Improve styling to match the reference
+    ax.set_xlabel("Number of Flows", fontsize=12)
+    ax.set_ylabel("Avg. Flow Rate [Mbps]", fontsize=12)
+    ax.set_title("Algorithm Performance: Rates vs Flows Number", fontsize=14)
+
+    ax.legend(loc='best', fontsize=10)
+    ax.grid(True, linestyle='--', linewidth=0.5)  # Use dashed grid for clarity
+
+    # Save or show the plot
+    if save_arguments:
+        # Ensure the directory exists
+        os.makedirs(subfolder_path, exist_ok=True)
+        plt.savefig(os.path.join(subfolder_path, 'average_rates_over_time_over_flows.png'), dpi=300)
+    plt.show()
+
+
+
+

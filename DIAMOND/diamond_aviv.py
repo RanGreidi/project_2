@@ -1,3 +1,5 @@
+import copy
+
 import numpy as np
 import os
 
@@ -84,7 +86,8 @@ class SlottedDIAMOND:
         #################### central computer in network computes allocations  ####################
         # stage 1
         rl_actions, rl_paths, rl_reward, Tot_rates = self.slotted_grrl.run(env=env, arrival_matrix=arrival_matrix, manual_actions=manual_actions)
-        action_recipe = rl_actions
+        action_recipe = copy.deepcopy(rl_actions)
+        # rl_actions = [[a[0][0], a[0][1]] for a in rl_actions]
         # rl_actions.sort(key=lambda x: x[0])
         # rl_actions = [x[1] for x in rl_actions]
         # rl_delay_data = env.get_delay_data() # Todo : at the last iteration, after env.flows update flows might not have "path" argument so get_delay_data needs to bu updated, or maybe dont update flows at last iteration
