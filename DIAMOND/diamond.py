@@ -138,11 +138,12 @@ class SlottedDIAMOND:
             If the flow waits, it adds a delay to the flow. 
             If we predicted that the flow will join the network, we added it to the recipe and the flow will be added to the network.
             '''
-            new_flows_dict = self.generate_new_flows_dict_according_to_probabilty_model(env.flows, self.Traffic_Probability_Model_list) # Add flows to env according to new flows that ask to join according to reality (the real flows that want to join the network)
+            # new_flows_dict = self.generate_new_flows_dict_according_to_probabilty_model(env.flows, self.Traffic_Probability_Model_list) # Add flows to env according to new flows that ask to join according to reality (the real flows that want to join the network)
             # env.flows = new_flows_dict
             # env.num_flows = len(new_flows_dict)
 
-            self.simualte_real_time_slot(env, actions_recipe[slot_indx]) #self.simualte_real_time_slot(env, actions_recipe[slot_indx])
+            # self.simualte_real_time_slot(env, actions_recipe[slot_indx]) #self.simualte_real_time_slot(env, actions_recipe[slot_indx])
+            env.simulate_global_slot_for_Real_Run(actions_recipe[slot_indx])
             _ , SlotRates_AvgOverFlows = env.end_of_slot_update()
             Tot_rates+=(SlotRates_AvgOverFlows)
             
@@ -210,9 +211,12 @@ class SlottedDIAMOND:
         #     action = action[0:2] #action is [step, a, flow_name], we need only [step, a]
         #     env.step(action, real_run=True)
 
-        for flow in range(env.num_flows):
-            action = slot_actions_from_recipe[flow] #action = [step, a, flow_name]
-            env.step(action, real_run=True)
+        # for flow in range(env.num_flows):
+        #     action = slot_actions_from_recipe[flow] #action = [step, a, flow_name]
+        #     env.step(action, real_run=True)
+        
+        env.simulate_global_slot_for_Real_Run(slot_actions_from_recipe)
+
         return 
     
     @staticmethod

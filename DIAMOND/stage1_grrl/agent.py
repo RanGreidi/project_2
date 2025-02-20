@@ -148,7 +148,7 @@ class SlottedGRRL:
                 # action = manual_actions[step]
                 action = [step, a] 
                 paths.append(env.possible_actions[action[0]][action[1]])
-                slot_actions.append([action[0], action[0] , env.flows[step]['constant_flow_name']])  # action format: [step , decision , flow_name]
+                slot_actions.append([action[0], action[1] , env.flows[step]['constant_flow_name']])  # action format: [step , decision , flow_name]
                 state, r = env.step(action)
                 reward += r
             

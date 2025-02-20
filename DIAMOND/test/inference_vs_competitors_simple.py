@@ -28,37 +28,37 @@ if __name__ == "__main__":
     # ------------------------------------------------------------------------
     Simulation_Time_Resolution = 1e-1       # miliseconds (i.e. each time step is a milisecond - this is the duration of each time step in [SEC])
     BW_value_in_Hertz = 1e6                   # wanted BW in Hertz
-    slot_duration = 15                     # [SEC] 
-    Tot_num_of_timeslots = 60               # [num of time slots]
+    slot_duration = 1                     # [SEC] 
+    Tot_num_of_timeslots = 2               # [num of time slots]
 
     #------------------------------------------------------------------------
 
     # Traffic model
     Trafic_model_flow0 = Traffic_Probability_Model(source=0 , destination=8 , constant_flow_name=0)
     Trafic_model_flow1 = Traffic_Probability_Model(source=0 , destination=7 , constant_flow_name=1)
-    Trafic_model_flow2 = Traffic_Probability_Model(source=0 , destination=6 , constant_flow_name=2)
-    Trafic_model_flow3 = Traffic_Probability_Model(source=0 , destination=5 , constant_flow_name=3)
-    Trafic_model_flow4 = Traffic_Probability_Model(source=0 , destination=4 , constant_flow_name=4)
-    Trafic_model_flow5 = Traffic_Probability_Model(source=0 , destination=3 , constant_flow_name=5)
-    Trafic_model_flow6 = Traffic_Probability_Model(source=0 , destination=2 , constant_flow_name=6)
-    Trafic_model_flow7 = Traffic_Probability_Model(source=0 , destination=1 , constant_flow_name=7)        
-    Trafic_model_list = [Trafic_model_flow0 , Trafic_model_flow1 , Trafic_model_flow2 , Trafic_model_flow3 , Trafic_model_flow4 , Trafic_model_flow5 , Trafic_model_flow6 , Trafic_model_flow7]
+    # Trafic_model_flow2 = Traffic_Probability_Model(source=0 , destination=6 , constant_flow_name=2)
+    # Trafic_model_flow3 = Traffic_Probability_Model(source=0 , destination=5 , constant_flow_name=3)
+    # Trafic_model_flow4 = Traffic_Probability_Model(source=0 , destination=4 , constant_flow_name=4)
+    # Trafic_model_flow5 = Traffic_Probability_Model(source=0 , destination=3 , constant_flow_name=5)
+    # Trafic_model_flow6 = Traffic_Probability_Model(source=0 , destination=2 , constant_flow_name=6)
+    # Trafic_model_flow7 = Traffic_Probability_Model(source=0 , destination=1 , constant_flow_name=7)        
+    Trafic_model_list = [Trafic_model_flow0 , Trafic_model_flow1]# , Trafic_model_flow2 , Trafic_model_flow3 , Trafic_model_flow4 , Trafic_model_flow5 , Trafic_model_flow6 , Trafic_model_flow7]
     #TODO: Inital demand should be the initial state in the probablity model, if start with 0 packets, then the first state should be 0, else first state should be the first demand
 
     # Inital flow demand list
     # constant_flow_name must start with 0 and be an int!
     F = [
-        {"source": 0, "destination": 8, "packets": 10   *1e5, "time_constrain": 10, 'flow_idx':  0 , 'constant_flow_name': 0},
-        {"source": 0, "destination": 7, "packets": 100  *1e5, "time_constrain": 10, 'flow_idx':  1 , 'constant_flow_name': 1},         #Packets [in Bits]
-        {"source": 0, "destination": 6, "packets": 500  *1e6, "time_constrain": 10, 'flow_idx':  2 , 'constant_flow_name': 2},         #Packets [in Bits]
-        {"source": 0, "destination": 5, "packets": 200  *1e6, "time_constrain": 10, 'flow_idx':  3 , 'constant_flow_name': 3},
-        {"source": 0, "destination": 4, "packets": 50   *1e6, "time_constrain": 10, 'flow_idx':  4 , 'constant_flow_name': 4},
-        {"source": 0, "destination": 3, "packets": 10   *1e6, "time_constrain": 10, 'flow_idx':  5 , 'constant_flow_name': 5},         #Packets [in Bits]
-        {"source": 0, "destination": 2, "packets": 30   *1e6, "time_constrain": 10, 'flow_idx':  6 , 'constant_flow_name': 6},         #Packets [in Bits]
-        {"source": 0, "destination": 1, "packets": 40   *1e6, "time_constrain": 10, 'flow_idx':  7 , 'constant_flow_name': 7}
+        {"source": 0, "destination": 8, "packets": 1    *1e5, "time_constrain": 10, 'flow_idx':  0 , 'constant_flow_name': 0},
+        {"source": 0, "destination": 7, "packets": 3  *1e5, "time_constrain": 10, 'flow_idx':  1 , 'constant_flow_name': 1}#,         #Packets [in Bits]
+        # {"source": 0, "destination": 6, "packets": 500  *1e6, "time_constrain": 10, 'flow_idx':  2 , 'constant_flow_name': 2},         #Packets [in Bits]
+        # {"source": 0, "destination": 5, "packets": 200  *1e6, "time_constrain": 10, 'flow_idx':  3 , 'constant_flow_name': 3},
+        # {"source": 0, "destination": 4, "packets": 50   *1e6, "time_constrain": 10, 'flow_idx':  4 , 'constant_flow_name': 4},
+        # {"source": 0, "destination": 3, "packets": 10   *1e6, "time_constrain": 10, 'flow_idx':  5 , 'constant_flow_name': 5},         #Packets [in Bits]
+        # {"source": 0, "destination": 2, "packets": 30   *1e6, "time_constrain": 10, 'flow_idx':  6 , 'constant_flow_name': 6},         #Packets [in Bits]
+        # {"source": 0, "destination": 1, "packets": 40   *1e6, "time_constrain": 10, 'flow_idx':  7 , 'constant_flow_name': 7}
     ]
 
-    F = F[0:2]
+
     #------------------------------------------------------------------------
 
     # # number of nodes
@@ -125,7 +125,7 @@ if __name__ == "__main__":
                                         direction = 'minimize',
                                         slot_duration = int(slot_duration / Simulation_Time_Resolution),            # [in SEC ]
                                         Tot_num_of_timeslots = Tot_num_of_timeslots,                                # [num of time slots]
-                                        render_mode = False,
+                                        render_mode = True,
                                         trx_power_mode='gain',
                                         channel_gain = 1,
                                         # channel_manual_gain = [100,200,3,400,500,600],
@@ -142,7 +142,7 @@ if __name__ == "__main__":
                                           direction = 'minimize',
                                           slot_duration = int( (slot_duration*Tot_num_of_timeslots) / Simulation_Time_Resolution),          # [in SEC]
                                           Tot_num_of_timeslots = 1, # [in Minutes]
-                                          render_mode = False,
+                                          render_mode = True,
                                           trx_power_mode='gain',
                                           channel_gain = 1,
                                           # channel_manual_gain = [100,200,3,400,500,600],
@@ -150,6 +150,7 @@ if __name__ == "__main__":
                                           Simulation_Time_Resolution = Simulation_Time_Resolution)    
     
     slotted_env_real_run = copy.deepcopy(slotted_env)
+    slotted_env_real_run.render_mode = False
     UNslotted_env_real_run = copy.deepcopy(UNslotted_env)
 
 
