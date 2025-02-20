@@ -107,10 +107,10 @@ class OSPF:
         best_flow_idx = free_flows_idx[0]
         for f, i in zip(free_flows, free_flows_idx):
             path, path_weight = self._shortest_path(G, s=f['source'], d=f['destination'])
-            if path_weight < best_path_weight:
+            if path_weight < best_path_weight and path in env.possible_actions[i]:  # ensures path is in possible actions
                 best_path_weight = path_weight
                 best_path = path.copy()
-                best_flow_idx = i
+                best_flow_idx = i  # Todo: need to change because best bath can be not in possible_actions
         return best_flow_idx, best_path
 
     def run(self, env, seed=None):
@@ -136,7 +136,10 @@ class OSPF:
         rewards = []
         for step in range(env.num_flows):
             action = self._select_action(state, env)
-            action = [action[0], env.possible_actions[action[0]].index(action[1])]
+            if action[1]:
+                action = [action[0], env.possible_actions[action[0]].index(action[1])]
+            else:
+                action = [action[0], 0]   # in case where best action not in possible paths
             actions.append(action)
             paths.append(env.possible_actions[action[0]][action[1]])
             # paths.append(action[1])
@@ -269,7 +272,7 @@ class IACR:
         best_flow_idx = free_flows_idx[0]
         for f, i in zip(free_flows, free_flows_idx):
             path, path_weight = self._shortest_path(G, s=f['source'], d=f['destination'])
-            if path_weight < best_path_weight:
+            if path_weight < best_path_weight and path in env.possible_actions[i]:  # ensures path is in possible actions
                 best_path_weight = path_weight
                 best_path = path.copy()
                 best_flow_idx = i
@@ -297,7 +300,10 @@ class IACR:
         rewards = []
         for step in range(env.num_flows):
             action = self._select_action(state, env)
-            action = [action[0], env.possible_actions[action[0]].index(action[1])]
+            if action[1]:
+                action = [action[0], env.possible_actions[action[0]].index(action[1])]
+            else:
+                action = [action[0], 0]  #  random.randint(0,env.k - 1), in case where best action not in possible paths, take random path
             actions.append(action)
             paths.append(env.possible_actions[action[0]][action[1]])
             # paths.append(action[1])

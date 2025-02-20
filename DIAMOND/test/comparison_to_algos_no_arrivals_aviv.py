@@ -25,13 +25,13 @@ os.environ["PYTHONHASHSEED"] = str(SEED)
 import copy
 
 
-def run(num_episodes=1, num_flows=10):
+def run(num_episodes=1, num_flows=10, use_nb3r=False):
 
     data = {
-        "GRRL_slotted": 0,  # 'diamond_slotted'
-        "GRRL_unslotted": 0,  # 'diamond_unslotted'
-        'ospf': 0,
-        'icar': 0,
+        "GRRL_Slotted": 0,  # 'diamond_slotted'
+        "DIAMOND_Unslotted": 0,  # 'diamond_unslotted'
+        'OSPF': 0,
+        'ICAR': 0,
     }
 
     for episode in range(num_episodes):
@@ -44,7 +44,7 @@ def run(num_episodes=1, num_flows=10):
         Simulation_Time_Resolution = 1e-1  # 1e-2  # miliseconds (i.e. each time step is a milisecond - this is the duration of each time step in [SEC])
         BW_value_in_Hertz = 1e6  # 1e6                   # wanted BW in Hertz
         slot_duration = 1  # 8 [SEC] 60
-        Tot_num_of_timeslots = 1800  # 3 60  # [num of time slots]
+        Tot_num_of_timeslots = 600  # 3 60  # [num of time slots]
         # ------------------------------------------------------------------------
 
         # -------------------- Try and use "generate_env" for random topology ------------------------ #
@@ -57,7 +57,7 @@ def run(num_episodes=1, num_flows=10):
             "min_flow_demand": 3 * 1e6,
             "max_flow_demand": 50 * 1e6,
             "delta": 1 * 1e6,
-            "num_actions": 40,
+            "num_actions": 10,
             "min_capacity": 1 * 1e6,  # [Hz]
             "max_capacity": 10 * 1e6,
             "direction": "minimize",
@@ -85,7 +85,7 @@ def run(num_episodes=1, num_flows=10):
                             "min_flow_demand": 3 * 1e6,
                             "max_flow_demand": 50 * 1e6,
                             "delta": 1 * 1e6,
-                            "num_actions": 40,
+                            "num_actions": 10,
                             "min_capacity": 1 * 1e6,
                             "max_capacity": 10 * 1e6,
                             "direction": "minimize",
@@ -149,7 +149,8 @@ def run(num_episodes=1, num_flows=10):
         # --------------- Save function arguments For Analysis -------------------- #
 
         # base_path = r"C:\Users\beaviv\Ran_DIAMOND_Plots\slotted_vs_unslotted\random_topologies"
-        base_path = r"C:\Users\beaviv\Ran_DIAMOND_Plots\slotted_vs_competition\random_topologies"
+        # base_path = r"C:\Users\beaviv\Ran_DIAMOND_Plots\slotted_vs_competition\random_topologies"
+        base_path = r"C:\Users\beaviv\Ran_DIAMOND_Plots\slotted_vs_competition_with_nb3r\random_topologies"
         subfolder_name = f"{slotted_env.num_nodes}_Nodes_{slotted_env.num_edges // 2}_Edges"
         timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")  # Add timestamp
         subfolder_path = os.path.join(base_path, subfolder_name, f"{timestamp}_{slotted_env.num_flows}_Flows")
@@ -184,24 +185,46 @@ def run(num_episodes=1, num_flows=10):
 
         # --------------------------------------------slotted -------------------------------------- #
         print(f'Started DIAMOND_Slotted Algorithm\n')
-        diamond_paths_slotted, action_recipe_slotted, Tot_rates_slotted = slotted_diamond(slotted_env)
-        diamond_interpolated_rates, nan_index = interpolate_rates(slotted_env=slotted_env, tot_rates=Tot_rates_slotted)
-        data["GRRL_slotted"] += np.mean(diamond_interpolated_rates[:nan_index])
+
+        # if not use_nb3r:
+        grrl_slotted_actions, grrl_slotted_paths, reward, Tot_rates_slotted = slotted_diamond(slotted_env, use_nb3r=False)
+        slotted_interpolated_rates, nan_index = interpolate_rates(slotted_env=slotted_env, tot_rates=Tot_rates_slotted)
+        data["GRRL_Slotted"] += np.mean(slotted_interpolated_rates[:nan_index])
+
+        # else:
+        #     grrl_actions, nb3r_actions, grrl_paths, nb3r_paths, Tot_rates_grrl, Tot_rates_slotted = slotted_diamond(slotted_env, use_nb3r=True)
+        #
+        #     slotted_interpolated_rates, nan_index = interpolate_rates(slotted_env=slotted_env, tot_rates=Tot_rates_slotted)
+        #     data["DIAMOND_Slotted"] += np.mean(slotted_interpolated_rates[:nan_index])
+
+            # nb3r_interpolated_rates, nan_index = interpolate_rates(slotted_env=slotted_env, tot_rates=Tot_rates_nb3r)
+            # data["NB3R_slotted"] += np.mean(grrl_interpolated_rates[:nan_index])
+
+        manual_decisions = [[action[0], action[1]] for action in grrl_slotted_actions[0]]
 
         # ------------------------------------------- un slotted ----------------------------------- #
         print(f'Started DIAMOND_UN_Slotted Algorithm\n')
-        manual_decisions = [[action[0], action[1]] for action in action_recipe_slotted[0]]  # action_recipe_slotted[0]   # action_recipe_slotted[:slotted_env.original_num_flows]
-        diamond_paths_un_slotted, action_recipe_un_slotted, Tot_rates_un_slotted = slotted_diamond(un_slotted_env,
-                                                                                                   grrl_data=True,
-                                                                                                   manual_actions=manual_decisions)
-        un_slotted_diamond_interpolated_rates, nan_index = interpolate_rates(slotted_env=slotted_env, tot_rates=Tot_rates_un_slotted)
-        data["GRRL_unslotted"] += np.mean(un_slotted_diamond_interpolated_rates[:nan_index])
-        # ------------------------------------------------ OSPF --------------------------------------------------- #
 
+        # Todo: fit unslotted for use_nb3r case
+
+        # if use_nb3r:
+        (grrl_actions_unslotted, diamond_actions_unslotted, grrl_paths_unslotted, diamond_paths_unslotted, Tot_rates_grrl_unslotted,
+         Tot_rates_unslotted) = slotted_diamond(un_slotted_env,
+                                               grrl_data=True,
+                                               manual_actions=manual_decisions,
+                                               use_nb3r=True)
+        # else:
+        #     grrl_actions_unslotted, nb3r_actions_unslotted, grrl_paths_unslotted, nb3r_paths, Tot_rates_grrl_unslotted, Tot_rates_un_slotted = slotted_diamond(
+        #         slotted_env, use_nb3r=True, manual_actions=manual_decisions)
+
+        un_slotted_diamond_interpolated_rates, nan_index = interpolate_rates(slotted_env=slotted_env, tot_rates=Tot_rates_unslotted)
+        data["DIAMOND_Unslotted"] += np.mean(un_slotted_diamond_interpolated_rates[:nan_index])
+        # ------------------------------------------------ OSPF --------------------------------------------------- #
+        #
         print(f'Started OSPF Algorithm\n')
         ospf_actions, ospf_paths, _, Tot_rates_ospf = ospf.run(ospf_env, seed=ospf_env.seed)
         ospf_interpolated_rates, nan_index = interpolate_rates(slotted_env=slotted_env, tot_rates=Tot_rates_ospf)
-        data["ospf"] += np.mean(ospf_interpolated_rates[:nan_index])
+        data["OSPF"] += np.mean(ospf_interpolated_rates[:nan_index])
         # ----------------------------------------------------- RB ------------------------------------------------- #
 
         # print(f'Started Random Baseline Algorithm\n')
@@ -213,7 +236,7 @@ def run(num_episodes=1, num_flows=10):
         print(f'Started ICAR Algorithm\n')
         icar_paths, icar_rewards, Tot_rates_icar = ICAR.run(ICAR_env, seed=ICAR_env.seed)
         icar_interpolated_rates, nan_index = interpolate_rates(slotted_env=slotted_env, tot_rates=Tot_rates_icar)
-        data["icar"] += np.mean(icar_interpolated_rates[:nan_index])
+        data["ICAR"] += np.mean(icar_interpolated_rates[:nan_index])
         # --------------------------------------------------- DQN+GNN  --------------------------------------------- #
 
         # dqn_gnn_paths, dqn_gnn_rewards, Tot_rates_dqn_gnn = DQN_GNN.run(dqn_gnn_env, seed=dqn_gnn_env.seed)
@@ -221,8 +244,8 @@ def run(num_episodes=1, num_flows=10):
         # ------------------------------------------------------------------------------------------ #
         # ------------------------------------------------- Plots ---------------------------------- #
 
-        plot_rates_multiple_algorithms(algo_names=["DIAMOND_Slotted", "DIAMOND_UnSlotted", "OSPF", "ICAR"],
-                                       algo_tot_rates=[Tot_rates_slotted, Tot_rates_un_slotted, Tot_rates_ospf, Tot_rates_icar],
+        plot_rates_multiple_algorithms(algo_names=["GRRL_Slotted", "DIAMOND_UnSlotted", "OSPF", "ICAR"],
+                                       algo_tot_rates=[Tot_rates_slotted, Tot_rates_unslotted, Tot_rates_ospf, Tot_rates_icar],
                                        slotted_env=slotted_env,
                                        subfolder_path=subfolder_path if save_arguments else None,
                                        save_arguments=save_arguments)
@@ -237,12 +260,12 @@ def run(num_episodes=1, num_flows=10):
 
 if __name__ == "__main__":
 
-    flows = [10, 15, 20]  # [10, 20, 30]
+    flows = [10, 15, 20, 25]  # [10, 20, 30]
     episodes = 3
     algo_rates = []
 
     for num_flows in flows:
-        data, subfolder_path = run(num_episodes=episodes, num_flows=num_flows)
+        data, subfolder_path = run(num_episodes=episodes, num_flows=num_flows, use_nb3r=True)
         algo_rates.append(list(data.values()))
 
     algo_names = list(data.keys())

@@ -5,6 +5,8 @@ import os
 import copy
 import numpy as np
 
+from stage2_nb3r import nb3r
+
 sys.path.insert(0, os.path.join("DIAMOND", "stage1_grrl"))
 
 
@@ -133,26 +135,34 @@ class SlottedGRRL:
 
         return int(action.cpu().detach().numpy())
 
-    def run(self, env, arrival_matrix=None, manual_actions=[]):
+    def run(self, env, arrival_matrix=None, manual_actions=[], use_nb3r=False):
         """
         run GRRL to get flow allocations
         :param env: environment to interact with
         :param arrival_matrix: future_demand
         :return: action indices, paths and rewards
         """
-        actions = []
+        grrl_actions = []
         # paths = [[] for _ in range(env.num_flows)]
-        paths = [[] for _ in range(env.Tot_num_of_timeslots)]
+        grrl_paths = [[] for _ in range(env.Tot_num_of_timeslots)]
         state = env.reset()
         reward = 0
         Tot_num_of_timeslots = env.Tot_num_of_timeslots
-        Tot_rates = []
+        Tot_rates_grrl = []
 
         # manual_actions = [[0, 0], [1, 1]]
+        nb3r_paths = [[] for _ in range(env.Tot_num_of_timeslots)]
+        Tot_rates_nb3r = []
+        nb3r_actions = []
 
         for timeslot in range(Tot_num_of_timeslots):  # as long there is still flows running (determines the num of time_slotes in one episode)
+
             slot_actions = []
+            grrl_slot_actions = []
+            nb3r_env = copy.deepcopy(env)  # Todo: ensures that grrl and nb3r gets same env
+
             for step in range(env.num_flows):
+
                 if manual_actions:
                     action = manual_actions[step]  # action = [step, a] # Todo: not correct if needs to use this line more than once
                 else:
@@ -160,22 +170,61 @@ class SlottedGRRL:
                     action = [step, a]
 
                 slot_actions.append([action[0], action[1], env.flows[step]['constant_flow_name']])  # action format: [step , decision , flow_name]
-                paths[timeslot].append(env.possible_actions[action[0]][action[1]])  # Todo, this is not correct!!!, possible_actions is always a list of length original_num_flows, will add paths to flows even if finished
+                grrl_paths[timeslot].append(env.possible_actions[action[0]][action[1]])  # Todo, this is not correct!!!, possible_actions is always a list of length original_num_flows, will add paths to flows even if finished
                 state, r = env.step(action)
                 reward += r
 
-            actions.append(slot_actions)
+                grrl_slot_actions.append(action)  # for nb3r initial state
+
+            grrl_actions.append(slot_actions)
+
+            # ------------------------------------------------------ #
             # Todo: update flows inside slotted_graph_power not here
             if env.arrival_matrix is not None:
                 self.update_flows(env=env, timeslot=timeslot)
+            # ------------------------------------------------------ #
 
             state,SlotRates_AvgOverFlows = env.end_of_slot_update()
-            Tot_rates += (SlotRates_AvgOverFlows)
-            # if env.original_num_flows != env.num_flows:
-            #     print(f'{env.original_num_flows - env.num_flows} / {env.original_num_flows} Finished at timeslot {timeslot}')
-            print(f'{env.num_flows}/{len(env.original_flows)} Flow Alive\n Finished Timeslot {timeslot+1}/{Tot_num_of_timeslots}\n')
+            Tot_rates_grrl += (SlotRates_AvgOverFlows)
 
-        return actions, paths, reward, Tot_rates
+            # ------------------------------------------------  NB3R ------------------------------------------------- #
+            if use_nb3r:
+                if nb3r_env.num_flows > 0:  # ensures that doesn't enter when all finished
+
+                    print(f'\n Starting NB3R')
+                    grrl_slot_actions.sort(key=lambda x: x[0])  # to keep order of flow index
+                    grrl_slot_actions = [x[1] for x in grrl_slot_actions]  # a list of N items every element is the path idx for flow n
+
+                    self.nb3r_steps = 5   # int(env.num_flows * 5)
+                    nb3r_action = nb3r(
+                        objective=lambda a: -self.rates_objective(nb3r_env, a),
+                        # objective=lambda a: -self.reward_objective(env, a),
+                        # objective=lambda a: -self.delay_objective(env, a),
+                        state_space=nb3r_env.get_state_space(),
+                        num_iterations=self.nb3r_steps,  # max(self.nb3r_steps, int(env.num_flows * 5)),
+                        initial_state=grrl_slot_actions.copy(),
+                        verbose=False,
+                        seed=env.seed,
+                        return_history=False,
+                        initial_temperature=1)
+
+                    # routs
+                    nb3r_routs = nb3r_env.get_routs(nb3r_action)
+                    nb3r_paths[timeslot].append(nb3r_routs)
+                    nb3r_actions.append([[flow_id, action_id] for flow_id, action_id in enumerate(nb3r_action)])
+                    nb3r_env.eval_all(nb3r_action)
+
+                _, SlotRates_AvgOverFlows = nb3r_env.end_of_slot_update()  # Todo: need to check if its okay to use this state, because env can hold different values
+                Tot_rates_nb3r += (SlotRates_AvgOverFlows)
+
+            # -------------------------------------------------------------------------------------------------------- #
+
+            print(f'{env.num_flows}/{len(env.original_flows)} Flow Alive\n Finished Timeslot {timeslot + 1}/{Tot_num_of_timeslots}\n')
+
+        if not use_nb3r:
+            return grrl_actions, grrl_paths, reward, Tot_rates_grrl
+        else:
+            return grrl_actions, nb3r_actions, grrl_paths, nb3r_paths, Tot_rates_grrl, Tot_rates_nb3r
 
     def update_flows(self, env, timeslot):
 
@@ -206,8 +255,17 @@ class SlottedGRRL:
         env.flows = list_of_2flows
         env.num_flows = len(env.flows)
 
+    @staticmethod
+    def rates_objective(env, actions):
+        env.reset()  # Todo: check if needed here, because in end_of_slot_update there is env.reset()
+        eval_env = copy.deepcopy(env)  # makes sure it's the same env for evaluation
+        eval_env.eval_all(actions)
+        state, SlotRates_AvgOverFlows = eval_env.end_of_slot_update()  # TODO: After this env.possible_actions can be different with diffrent actions, need to use the same env every time for evaluation
+        try:
+            return np.mean(SlotRates_AvgOverFlows)  # np.sum(env.get_rates_data()['sum_flow_rates'])
 
-
+        except TypeError:  # For the case where finished before all iterations
+            return np.mean(SlotRates_AvgOverFlows[:SlotRates_AvgOverFlows.index(None)])
 
 
 

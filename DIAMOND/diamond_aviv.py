@@ -85,7 +85,13 @@ class SlottedDIAMOND:
 
         #################### central computer in network computes allocations  ####################
         # stage 1
-        rl_actions, rl_paths, rl_reward, Tot_rates = self.slotted_grrl.run(env=env, arrival_matrix=arrival_matrix, manual_actions=manual_actions)
+
+        if not use_nb3r:
+            rl_actions, rl_paths, rl_reward, Tot_rates = self.slotted_grrl.run(env=env, arrival_matrix=arrival_matrix, manual_actions=manual_actions, use_nb3r=False)
+
+        if use_nb3r:
+            rl_actions, nb3r_actions, rl_paths, nb3r_paths, Tot_rates_grrl, Tot_rates_nb3r = self.slotted_grrl.run(env=env, arrival_matrix=arrival_matrix, manual_actions=manual_actions, use_nb3r=True)
+
         action_recipe = copy.deepcopy(rl_actions)
         # rl_actions = [[a[0][0], a[0][1]] for a in rl_actions]
         # rl_actions.sort(key=lambda x: x[0])
@@ -97,29 +103,35 @@ class SlottedDIAMOND:
         routs = rl_paths
 
         # stage 2
+        # if use_nb3r:
+        #     self.nb3r_steps = int(env.num_flows * 5)
+        #     nb3r_action = nb3r(
+        #         objective=lambda a: -self.rates_objective(env, a),
+        #         # objective=lambda a: -self.reward_objective(env, a),
+        #         # objective=lambda a: -self.delay_objective(env, a),
+        #         state_space=env.get_state_space(),
+        #         num_iterations=self.nb3r_steps,  # max(self.nb3r_steps, int(env.num_flows * 5)),
+        #         initial_state=rl_actions.copy(),
+        #         verbose=False,
+        #         seed=env.seed,
+        #         return_history=False,
+        #         initial_temperature=self.nb3r_tmpr)
+        #     # routs
+        #     routs = env.get_routs(nb3r_action)
+        #
+        # ####################  The actual run and evaluation of packets in the network   ####################
+        # # _ = self.real_run(env, actions_recipe)
+
+        # if grrl_data:
+        #     return routs, action_recipe, Tot_rates  # routs, rl_rates_data, rl_delay_data, Tot_rates
+
+        if not use_nb3r:
+            return rl_actions, rl_paths, rl_reward, Tot_rates
+
         if use_nb3r:
-            self.nb3r_steps = int(env.num_flows * 5)
-            nb3r_action = nb3r(
-                objective=lambda a: -self.rates_objective(env, a),
-                # objective=lambda a: -self.reward_objective(env, a),
-                # objective=lambda a: -self.delay_objective(env, a),
-                state_space=env.get_state_space(),
-                num_iterations=self.nb3r_steps,  # max(self.nb3r_steps, int(env.num_flows * 5)),
-                initial_state=rl_actions.copy(),
-                verbose=False,
-                seed=env.seed,
-                return_history=False,
-                initial_temperature=self.nb3r_tmpr)
-            # routs
-            routs = env.get_routs(nb3r_action)
+            return rl_actions, nb3r_actions, rl_paths, nb3r_paths, Tot_rates_grrl, Tot_rates_nb3r
 
-        ####################  The actual run and evaluation of packets in the network   ####################
-        # _ = self.real_run(env, actions_recipe)
 
-        if grrl_data:
-            return routs, action_recipe, Tot_rates  # routs, rl_rates_data, rl_delay_data, Tot_rates
-
-        return routs
 
     def real_run(self, env, actions_recipe=None):
         '''

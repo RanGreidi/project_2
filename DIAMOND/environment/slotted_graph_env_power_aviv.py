@@ -1091,9 +1091,15 @@ class SlottedGraphEnvPower:
         :param actions: list of tuples (flow, path)
         :return: accumulated reward
         """
-        self.reset()
+        self.reset()  # Todo: check if needed here, because in end_of_slot_update there is env.reset()
         rewards = [self.eval((i, a)) for i, a in enumerate(actions)]
         return sum(rewards)
+
+    def get_routs(self, actions):
+        if isinstance(actions[0], (list, tuple)):
+            return [self.possible_actions[a[0]][a[1]] for a in actions]
+        else:
+            return [self.possible_actions[i][a] for i, a in enumerate(actions)]
 
 
 if __name__ == "__main__":
