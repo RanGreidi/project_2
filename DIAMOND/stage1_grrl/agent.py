@@ -99,7 +99,7 @@ class SlottedGRRL:
         :return: loaded model
         """
         try:
-            model = torch.load(self.path)['model']
+            model = torch.load(self.path,weights_only=False)['model']
         except FileNotFoundError:
             sys.path.insert(0, os.path.join("..", "stage1_grrl"))
             model = torch.load(self.path.replace('DIAMOND', '..'))['model']
