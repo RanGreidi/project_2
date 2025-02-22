@@ -51,8 +51,8 @@ def run(num_episodes=1, num_flows=10, use_nb3r=False):
 
         # Function arguments
         slotted_env_args = {
-            "num_nodes": 40,
-            "num_edges": 70,
+            "num_nodes": 5,
+            "num_edges": 5,
             "num_flows": num_flows,
             "min_flow_demand": 3 * 1e6,
             "max_flow_demand": 50 * 1e6,
@@ -79,8 +79,8 @@ def run(num_episodes=1, num_flows=10, use_nb3r=False):
         }
 
         un_slotted_env_args = {
-                            "num_nodes": 40,
-                            "num_edges": 70,
+                            "num_nodes": 5,
+                            "num_edges": 5,
                             "num_flows": num_flows,
                             "min_flow_demand": 3 * 1e6,
                             "max_flow_demand": 50 * 1e6,
@@ -145,7 +145,7 @@ def run(num_episodes=1, num_flows=10, use_nb3r=False):
         # ------------------------------------------------------------------------------------------------ #
 
         # ------------------------------------------------------------------------- #
-        save_arguments = True
+        save_arguments = False
         # --------------- Save function arguments For Analysis -------------------- #
 
         # base_path = r"C:\Users\beaviv\Ran_DIAMOND_Plots\slotted_vs_unslotted\random_topologies"
@@ -260,7 +260,7 @@ def run(num_episodes=1, num_flows=10, use_nb3r=False):
 
 if __name__ == "__main__":
 
-    flows = [10, 15, 20, 25]  # [10, 20, 30]
+    flows = [5]  # [10, 20, 30]
     episodes = 3
     algo_rates = []
 

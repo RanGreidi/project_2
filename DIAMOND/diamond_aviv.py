@@ -131,8 +131,6 @@ class SlottedDIAMOND:
         if use_nb3r:
             return rl_actions, nb3r_actions, rl_paths, nb3r_paths, Tot_rates_grrl, Tot_rates_nb3r
 
-
-
     def real_run(self, env, actions_recipe=None):
         '''
         This function simulate the Real packet flow after the centarl computer has computed the allocations. Once we get the recipe from the agent.
