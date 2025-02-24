@@ -26,9 +26,9 @@ if __name__ == "__main__":
     reward_weights = dict(rate_weight=0.5, delay_weight=0, interference_weight=0, capacity_reduction_weight=0)
 
     # ------------------------------------------------------------------------
-    Simulation_Time_Resolution = 1e-2       # miliseconds (i.e. each time step is a milisecond - this is the duration of each time step in [SEC])
+    Simulation_Time_Resolution = 1e-1       # miliseconds (i.e. each time step is a milisecond - this is the duration of each time step in [SEC])
     BW_value_in_Hertz = 1e6                   # wanted BW in Hertz
-    slot_duration = 1                     # [SEC] 
+    slot_duration = 2                     # [SEC] 
     Tot_num_of_timeslots = 20000               # [num of time slots]
     #------------------------------------------------------------------------
 
