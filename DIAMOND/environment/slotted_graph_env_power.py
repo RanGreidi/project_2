@@ -532,7 +532,9 @@ class SlottedGraphEnvPower:
         self.current_link_capacity_list_4EachTimeStep.append(current_link_capacity_after_sharing_devision)
 
         packet_size = 1e5
-        delay_ready = [False  for _ in self.allocated]
+        # delay_ready = [False  for _ in self.allocated]
+        flow_ready_target = len(self.allocated)
+        flow_ready_counter = 0
         # update delay metric
         for ii,flow in enumerate(self.flows):
             # flow_idx = flow['constant_flow_name']
@@ -545,9 +547,11 @@ class SlottedGraphEnvPower:
                     # in case a larger amout of data was delivered in the first time step
                     self.routing_metrics['delay']['end_to_end_delay_per_flow_for_a_defined_packet_size'][flow_constant_name] = self.Simulation_Time_Resolution
                 else:
-                    delay_ready[ii] = True
+                    # delay_ready[ii] = True
+                    flow_ready_counter += 1
         
-        if (delay_ready[0] if delay_ready else 0) & (delay_ready[0] if len(delay_ready) > 1 else 0): 
+        # if (delay_ready[0] if delay_ready else 0) & (delay_ready[0] if len(delay_ready) > 1 else 0): 
+        if (flow_ready_counter == flow_ready_target) & (flow_ready_target > 0):     
             # if all element in delay_ready list are True
             any(d.update({"delivered_in_a_slot": 0}) for d in self.flows) # zero all delivered in a slot to calulate delay all over again
             self.current_flow_delay_list_4EachTimeStep.append(self.routing_metrics['delay']['end_to_end_delay_per_flow_for_a_defined_packet_size'])
