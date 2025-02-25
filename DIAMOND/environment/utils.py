@@ -389,39 +389,34 @@ def shortest_path(G, s, d):
     return nx.shortest_path(G, source=s, target=d, weight='weight', method='dijkstra')
 
 
-def plot_graph(graph,graph_pos, labels,residual_label, total_time_slots, table_data, Simulation_Time_Resolution, print_index):
-    column_labels = ["Flow", "Rate[bps]"]
+def plot_graph(graph, graph_pos, labels, residual_label, total_time_slots, table_data, Simulation_Time_Resolution,
+               is_slotted, slot_num):
+    column_labels = ["Flow", "Rate [bps]"]
 
     # plot
-    plt.figure()  # figsize=(10, 8) Adjust size as needed
-    table = plt.table(cellText=table_data, colLabels=column_labels, loc='bottom', cellLoc='center', bbox=[0, 0, 0.2, 0.1])
+    plt.figure()
+    table = plt.table(cellText=table_data, colLabels=column_labels, loc='bottom', cellLoc='center',
+                      bbox=[0, 0, 0.2, 0.1])
     # Set the font size for each cell in the table
     for key, cell in table.get_celld().items():
         cell.set_fontsize(5)  # Adjust the font size as needed
-    nx.draw_networkx(graph, graph_pos, with_labels=True, node_color="tab:blue")   # node_size=50
-
-    nx.draw_networkx_edge_labels(graph, graph_pos, edge_labels=labels, font_color='red', font_size=2.5, label_pos=0.3)  # font_size=2.5
-
+    nx.draw_networkx(graph, graph_pos, with_labels=True, node_color="tab:blue")
+    nx.draw_networkx_edge_labels(graph, graph_pos, edge_labels=labels, font_color='red', font_size=2.5, label_pos=0.3)
     # draw residual
-    nx.draw_networkx_edge_labels(graph, graph_pos, edge_labels=residual_label, font_color='blue', font_size=2.5, label_pos=0.7)
+    nx.draw_networkx_edge_labels(graph, graph_pos, edge_labels=residual_label, font_color='blue', font_size=2.5,
+                                 label_pos=0.7)
+    comment = f"Time step [SEC]: {total_time_slots * Simulation_Time_Resolution}"
+    plt.text(0.5, -0.1, comment, ha='center', va='center', transform=plt.gca().transAxes, fontsize=7)
 
-    comment = f"Time step [SEC]: {total_time_slots*Simulation_Time_Resolution}"
-    plt.text(0.5, -0.1, comment, ha="center", va="center", transform=plt.gca().transAxes, fontsize=7)
-    # TODO: My adding, save figures to specified folder for video creation
-    # -------------------------------------------------------------------- #
-    base_path = r"C:\Users\beaviv\Ran_DIAMOND_Plots\slotted_vs_unslotted\costume_topologies\graph_images"
-    subfolder_name = f"{graph.number_of_nodes()}_Nodes_{graph.number_of_edges() // 2}_Edges"
-    timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")  # Add timestamp
-    subfolder_path = os.path.join(base_path, subfolder_name, "slotted_v2")  # , "un_slotted"
-    # Ensure the directory exists
-    os.makedirs(subfolder_path, exist_ok=True)
-    # Full file path
-    file_path = os.path.join(subfolder_path, f"print_index_{print_index}_timestep_in_timeslot_{total_time_slots}_graph.png")
-
-    # -------------------------------------------------------------------- #
-    plt.savefig(file_path, dpi=300)
+    # now = datetime.now()
+    # current_time = now.strftime("%H:%M")
+    os.makedirs(f'DIAMOND/Debug/Slotted_graphs', exist_ok=True)
+    os.makedirs(f'DIAMOND/Debug/UnSlotted_graphs', exist_ok=True)
+    if is_slotted:
+        plt.savefig(f'DIAMOND/Debug/Slotted_graphs/result_graph_{slot_num}_{total_time_slots}.png', dpi=300)
+    else:
+        plt.savefig(f'DIAMOND/Debug/UnSlotted_graphs/result_graph{slot_num}_{total_time_slots}.png', dpi=300)
     plt.close()
-
     return
 
 
@@ -670,7 +665,7 @@ def plot_algorithm_rates(flows, algo_names, algo_rates, save_arguments, subfolde
     :param algo_rates: List of lists, where each sublist contains rate values for each algorithm.
     """
 
-    fig, ax = plt.subplots(figsize=(10, 5))  # Use ax1 for better control
+    fig, ax = plt.subplots(figsize=(15, 5))  # Use ax1 for better control
 
     # Define unique colors and markers
     colors = ['b', 'r', 'darkviolet', 'orange', 'green', 'violet', 'k', 'y']
@@ -684,7 +679,8 @@ def plot_algorithm_rates(flows, algo_names, algo_rates, save_arguments, subfolde
         rates = [algo_rates[i][idx] for i in range(len(flows))]
 
         # Plot with unique color, marker, and label
-        ax.plot(flows, rates, linestyle='-', color=color, marker=marker, markersize=6, label=algo_name)
+        ax.plot(flows, rates, linestyle='-', color=color, marker=marker, markersize=8,
+                markerfacecolor='none', markeredgecolor=color, label=algo_name)
 
     ax.set_xticks(flows)
     ax.set_xticklabels(flows, fontsize=10)

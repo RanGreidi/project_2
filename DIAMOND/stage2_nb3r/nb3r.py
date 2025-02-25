@@ -61,7 +61,8 @@ def nb3r(objective, state_space, num_iterations, initial_temperature=0.8,
         # build transition probability vector
         probs = np.ones(num_routs) * (1 / num_routs)  # R(x,y) = 1/|N(x)|
         # P_k(x,y) for y in N(x) and y != x
-        for i, rout in enumerate(possible_routs):
+        # for i, rout in enumerate(possible_routs):
+        for i, rout in enumerate(possible_routs[:5]):
             if i != state[flow]:
                 y = state.copy()
                 y[flow] = rout

@@ -87,10 +87,10 @@ class SlottedDIAMOND:
         # stage 1
 
         if not use_nb3r:
-            rl_actions, rl_paths, rl_reward, Tot_rates = self.slotted_grrl.run(env=env, arrival_matrix=arrival_matrix, manual_actions=manual_actions, use_nb3r=False)
+            rl_actions, rl_paths, rl_reward, Tot_rates, Tot_delays = self.slotted_grrl.run(env=env, arrival_matrix=arrival_matrix, manual_actions=manual_actions, use_nb3r=False)
 
         if use_nb3r:
-            rl_actions, nb3r_actions, rl_paths, nb3r_paths, Tot_rates_grrl, Tot_rates_nb3r = self.slotted_grrl.run(env=env, arrival_matrix=arrival_matrix, manual_actions=manual_actions, use_nb3r=True)
+            rl_actions, nb3r_actions, rl_paths, nb3r_paths, Tot_rates_nb3r, Tot_delays_nb3r = self.slotted_grrl.run(env=env, arrival_matrix=arrival_matrix, manual_actions=manual_actions, use_nb3r=True)
 
         action_recipe = copy.deepcopy(rl_actions)
         # rl_actions = [[a[0][0], a[0][1]] for a in rl_actions]
@@ -126,10 +126,10 @@ class SlottedDIAMOND:
         #     return routs, action_recipe, Tot_rates  # routs, rl_rates_data, rl_delay_data, Tot_rates
 
         if not use_nb3r:
-            return rl_actions, rl_paths, rl_reward, Tot_rates
+            return rl_actions, rl_paths, rl_reward, Tot_rates, Tot_delays
 
         if use_nb3r:
-            return rl_actions, nb3r_actions, rl_paths, nb3r_paths, Tot_rates_grrl, Tot_rates_nb3r
+            return rl_actions, nb3r_actions, rl_paths, nb3r_paths, Tot_rates_nb3r, Tot_delays_nb3r
 
     def real_run(self, env, actions_recipe=None):
         '''

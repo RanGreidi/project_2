@@ -149,10 +149,12 @@ class SlottedGRRL:
         reward = 0
         Tot_num_of_timeslots = env.Tot_num_of_timeslots
         Tot_rates_grrl = []
+        Tot_delays_grrl = []
 
         # manual_actions = [[0, 0], [1, 1]]
         nb3r_paths = [[] for _ in range(env.Tot_num_of_timeslots)]
         Tot_rates_nb3r = []
+        Tot_delays_nb3r = []
         nb3r_actions = []
 
         for timeslot in range(Tot_num_of_timeslots):  # as long there is still flows running (determines the num of time_slotes in one episode)
@@ -184,8 +186,9 @@ class SlottedGRRL:
                 self.update_flows(env=env, timeslot=timeslot)
             # ------------------------------------------------------ #
 
-            state,SlotRates_AvgOverFlows = env.end_of_slot_update()
+            state,SlotRates_AvgOverFlows, SlotDelays_AvgOverFlows = env.end_of_slot_update()
             Tot_rates_grrl += (SlotRates_AvgOverFlows)
+            Tot_delays_grrl.append(SlotDelays_AvgOverFlows)
 
             # ------------------------------------------------  NB3R ------------------------------------------------- #
             if use_nb3r:
@@ -214,17 +217,18 @@ class SlottedGRRL:
                     nb3r_actions.append([[flow_id, action_id] for flow_id, action_id in enumerate(nb3r_action)])
                     nb3r_env.eval_all(nb3r_action)
 
-                _, SlotRates_AvgOverFlows = nb3r_env.end_of_slot_update()  # Todo: need to check if its okay to use this state, because env can hold different values
+                _, SlotRates_AvgOverFlows, SlotDelays_AvgOverFlows = nb3r_env.end_of_slot_update()  # Todo: need to check if its okay to use this state, because env can hold different values
                 Tot_rates_nb3r += (SlotRates_AvgOverFlows)
+                Tot_delays_nb3r.append(SlotDelays_AvgOverFlows)
 
             # -------------------------------------------------------------------------------------------------------- #
 
             print(f'{env.num_flows}/{len(env.original_flows)} Flow Alive\n Finished Timeslot {timeslot + 1}/{Tot_num_of_timeslots}\n')
 
         if not use_nb3r:
-            return grrl_actions, grrl_paths, reward, Tot_rates_grrl
+            return grrl_actions, grrl_paths, reward, Tot_rates_grrl, Tot_delays_grrl
         else:
-            return grrl_actions, nb3r_actions, grrl_paths, nb3r_paths, Tot_rates_grrl, Tot_rates_nb3r
+            return grrl_actions, nb3r_actions, grrl_paths, nb3r_paths, Tot_rates_nb3r, Tot_delays_nb3r
 
     def update_flows(self, env, timeslot):
 

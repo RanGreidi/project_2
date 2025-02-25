@@ -25,6 +25,7 @@ class RandomBaseline:
         env = copy.deepcopy(self.env)  # every run needs to initialize original env because it changes after episode
 
         Tot_rates = []
+        Tot_delays = []
         actions = []
 
         state = env.reset()
@@ -40,12 +41,13 @@ class RandomBaseline:
         # delay_data = env.get_delay_data()
         # rates_data = env.get_rates_data()
 
-        state, SlotRates_AvgOverFlows = env.end_of_slot_update()
+        state, SlotRates_AvgOverFlows, SlotDelays_AvgOverFlows = env.end_of_slot_update()
         Tot_rates += (SlotRates_AvgOverFlows)
+        Tot_delays.append(SlotDelays_AvgOverFlows)
 
         print(f'{env.num_flows}/{len(env.original_flows)} Flow Alive\n')
 
-        return paths, np.sum(rewards), Tot_rates  #, delay_data, rates_data
+        return paths, np.sum(rewards), Tot_rates, Tot_delays  #, delay_data, rates_data
 
     def run(self, seed=None):
 
@@ -123,6 +125,7 @@ class OSPF:
 
         # Todo: my adding, match run for slotted env
         Tot_rates = []
+        Tot_delays = []
 
         if seed is not None:
             random.seed(seed)
@@ -146,15 +149,16 @@ class OSPF:
             state, r = env.step(action, eval_path=False)  # eval_path=True
             rewards.append(r)
 
-        state, SlotRates_AvgOverFlows = env.end_of_slot_update()
+        state, SlotRates_AvgOverFlows, SlotDelays_AvgOverFlows = env.end_of_slot_update()
         Tot_rates += (SlotRates_AvgOverFlows)
+        Tot_delays.append(SlotDelays_AvgOverFlows)
         # delay_data = env.get_delay_data(action_idx=False)
         # rates_data = env.get_rates_data()
         # env.normalize_capacity = prev_norm
 
         print(f'{env.num_flows}/{len(env.original_flows)} Flow Alive\n')
 
-        return actions, paths, rewards, Tot_rates  # paths, rewards, delay_data, rates_data, actions
+        return actions, paths, rewards, Tot_rates, Tot_delays  # paths, rewards, delay_data, rates_data, actions
 
 
 class DQN_GNN:
@@ -287,6 +291,7 @@ class IACR:
         """
         # Todo: my adding, match run for slotted env
         Tot_rates = []
+        Tot_delays = []
 
         if seed is not None:
             random.seed(seed)
@@ -314,12 +319,13 @@ class IACR:
         # rates_data = env.get_rates_data()
         # env.normalize_capacity = prev_norm
 
-        state, SlotRates_AvgOverFlows = env.end_of_slot_update()
+        state, SlotRates_AvgOverFlows, SlotDelays_AvgOverFlows = env.end_of_slot_update()
         Tot_rates += (SlotRates_AvgOverFlows)
+        Tot_delays.append(SlotDelays_AvgOverFlows)
 
         print(f'{env.num_flows}/{len(env.original_flows)} Flow Alive\n')
 
-        return paths, rewards, Tot_rates  # delay_data, rates_data
+        return paths, rewards, Tot_rates, Tot_delays  # delay_data, rates_data
 
 
 class DIAR:
