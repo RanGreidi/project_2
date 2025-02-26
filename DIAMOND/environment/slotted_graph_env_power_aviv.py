@@ -457,7 +457,7 @@ class SlottedGraphEnvPower:
 
             # share link's resource
             c = calc_indevidual_minimum_capacity(self, a, action_dict, self.current_link_capacity)  # c is a list of minmum capacity for each flow (in their oreder)
-            remaining_packets = one_link_transmission(c, a['packets'],self.Simulation_Time_Resolution)      # transmit for a time_resolution duration. remaining packets is a list of remining packets for each flow (in their oreder)
+            remaining_packets = one_link_transmission(c, a['packets'], self.Simulation_Time_Resolution)      # transmit for a time_resolution duration. remaining packets is a list of remining packets for each flow (in their oreder)
             # remaining_packets = one_link_transmission(capacity, a['packets'])  # packets remained at transmit for the next time-step over (u, v)
             advanced_packets = [p - r for p, r in
                                 zip(a['packets'], remaining_packets)]  # packets to transmit over (v, w)

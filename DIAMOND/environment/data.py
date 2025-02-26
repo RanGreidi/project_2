@@ -195,7 +195,7 @@ def generate_slotted_env(num_nodes=10,
     # 3. generate env instance
     # capacity_matrix = np.random.randint(low=min_capacity, high=max_capacity + 1, size=(num_nodes, num_nodes))
     np.random.seed(seed)
-    capacity_matrix = np.random.randint(low=min_capacity, high=max_capacity + 1, size=adjacency.shape) * Simulation_Time_Resolution
+    capacity_matrix = np.random.randint(low=min_capacity, high=max_capacity + 1, size=adjacency.shape)   # * Simulation_Time_Resolution
     # capacity_matrix = np.random.uniform(low=min_capacity, high=max_capacity, size=adjacency.shape) * Simulation_Time_Resolution
 
     # interference matrix

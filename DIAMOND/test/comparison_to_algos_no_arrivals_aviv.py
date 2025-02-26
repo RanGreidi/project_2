@@ -47,18 +47,18 @@ def run(num_episodes=1, num_flows=10, use_nb3r=False):
 
         reward_weights = dict(rate_weight=0.5, delay_weight=0, interference_weight=0, capacity_reduction_weight=0)
         # ------------------------------------------------------------------------
-        Simulation_Time_Resolution = 1e-1  # 1e-1  # miliseconds (i.e. each time step is a milisecond - this is the duration of each time step in [SEC])
+        Simulation_Time_Resolution = 1e-2  # 1e-1  # miliseconds (i.e. each time step is a milisecond - this is the duration of each time step in [SEC])
         BW_value_in_Hertz = 1e6  # 1e6                   # wanted BW in Hertz
         slot_duration = 1  # 8 [SEC] 60
-        Tot_num_of_timeslots = 600  # 3 60  # [num of time slots]
+        Tot_num_of_timeslots = 100  # 3 60  # [num of time slots]
         # ------------------------------------------------------------------------
 
         # -------------------- Try and use "generate_env" for random topology ------------------------ #
 
         # Function arguments
         slotted_env_args = {
-            "num_nodes": 20,
-            "num_edges": 40,
+            "num_nodes": 10,
+            "num_edges": 10,
             "num_flows": num_flows,
             "min_flow_demand": 3 * 1e6,
             "max_flow_demand": 50 * 1e6,
@@ -85,8 +85,8 @@ def run(num_episodes=1, num_flows=10, use_nb3r=False):
         }
 
         un_slotted_env_args = {
-                            "num_nodes": 20,
-                            "num_edges": 40,
+                            "num_nodes": 10,
+                            "num_edges": 10,
                             "num_flows": num_flows,
                             "min_flow_demand": 3 * 1e6,
                             "max_flow_demand": 50 * 1e6,

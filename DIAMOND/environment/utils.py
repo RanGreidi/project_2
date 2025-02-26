@@ -644,7 +644,8 @@ def interpolate_rates(slotted_env, tot_rates):
 
     # Create time axes
     time_axis_in_resolution = [i * slotted_env.Simulation_Time_Resolution for i in range(1, len(tot_rates) + 1)]
-    time_axis_in_seconds = [i for i in range(1, int(slotted_env.slot_duration * slotted_env.Simulation_Time_Resolution) * slotted_env.Tot_num_of_timeslots + 1)]
+    # time_axis_in_seconds = [i for i in range(1, int(slotted_env.slot_duration * slotted_env.Simulation_Time_Resolution) * slotted_env.Tot_num_of_timeslots + 1)]
+    time_axis_in_seconds = [i for i in range(1, int(slotted_env.slot_duration * slotted_env.Tot_num_of_timeslots) + 1)]
 
     # Interpolation
     interpolator = interp1d(time_axis_in_resolution, tot_rates, kind='linear')
