@@ -73,7 +73,7 @@ class SlottedGraphEnvPower:
         self.prev_reward = None
         
         # rate is a matrix with rows as flows and columns as time step
-        self.routing_metrics = dict(rate=dict(rate_per_flow=np.full([self.num_flows,int(slot_duration/Simulation_Time_Resolution)],np.inf).astype(np.float64)),
+        self.routing_metrics = dict(rate=dict(rate_per_flow=np.full([self.num_flows,int(round(slot_duration/Simulation_Time_Resolution))],np.inf).astype(np.float64)),
                                     delay=dict(end_to_end_delay_per_flow_for_a_defined_packet_size=np.zeros(self.initial_num_of_flows), slot_delay=[]))
 
         
@@ -378,7 +378,7 @@ class SlottedGraphEnvPower:
                 shared_resource = dict(link=active_links[l1]['link'],
                                    packets=[active_links[l1]['packets']],
                                    flows_idxs=[(active_links[l1]['flow_idx'], active_links[l1]['residual_name'])],
-                                    constant_flow_name=[active_links[l1]['constant_flow_name']])                
+                                   constant_flow_name=[(active_links[l1]['constant_flow_name'],active_links[l1]['residual_name'])])                
             else:
                 shared_resource = dict(link=active_links[l1]['link'],
                                     packets=[active_links[l1]['packets']],
@@ -442,7 +442,7 @@ class SlottedGraphEnvPower:
                         next_hop = (flow['path'][v_pos], flow['path'][v_pos+1])
                         # exist_flow = list(filter(lambda x: x[1]['flow_idx'] == flow_idx and x[1]['link'] == next_hop,
                         #                         enumerate(next_active_links))) 
-                        exist_flow = list(filter(lambda x: x[1]['constant_flow_name'] == constant_flow_name and x[1]['link'] == next_hop,
+                        exist_flow = list(filter(lambda x: (x[1]['constant_flow_name'] == constant_flow_name) and (x[1]['link'] == next_hop) and ('residual_name' not in x[1]),
                                                 enumerate(next_active_links)))                         
                         if exist_flow:
                             next_active_links[exist_flow[0][0]]['packets'] += pkt
@@ -452,7 +452,7 @@ class SlottedGraphEnvPower:
                                                         packets=pkt,
                                                         constant_flow_name=constant_flow_name))
                     else:
-                        #only when pkt reached its destination
+                        #only when pkt reached its destination, add to flow.delivered 
                         next(d for d in self.flows if d["constant_flow_name"] == constant_flow_name)["delivered_in_a_slot"] += pkt
                 else:
                     #search for the spesific resiudal flow at self.residual_flows
@@ -471,8 +471,10 @@ class SlottedGraphEnvPower:
                                                         link=next_hop,
                                                         packets=pkt,
                                                         residual_name=residual_name,
-                                                        constant_flow_name=constant_flow_name))
-
+                                                        constant_flow_name=constant_flow_name[0]))
+                    else:
+                        #only when pkt reached its destination, add to flow.delivered (applys also for residual flows)
+                        next(d for d in self.flows if d["constant_flow_name"] == constant_flow_name[0])["delivered_in_a_slot"] += pkt
             
             # flows staying in the current hop for the next time stamp
             for idx, pkt in enumerate(remaining_packets):
@@ -484,7 +486,7 @@ class SlottedGraphEnvPower:
                         if pkt > 0:
                             # exist_flow = list(filter(lambda x: x[1]['flow_idx'] == flow_idx and x[1]['link'] == a['link'],
                             #     enumerate(next_active_links)))
-                            exist_flow = list(filter(lambda x: x[1]['constant_flow_name'] == flow_idx and x[1]['link'] == a['link'],
+                            exist_flow = list(filter(lambda x: (x[1]['constant_flow_name'] == flow_idx) and (x[1]['link'] == a['link'])  and ('residual_name' not in x[1]),
                                 enumerate(next_active_links)))                            
                             if exist_flow:
                                 next_active_links[exist_flow[0][0]]['packets'] += pkt
@@ -501,7 +503,7 @@ class SlottedGraphEnvPower:
                         if pkt > 0:
                             # exist_flow = list(filter(lambda x: x[1]['flow_idx'] == flow_idx and x[1]['link'] == a['link'] and ('residual_name' in x[1]) and x[1]['residual_name'] == residual_name,
                             #     enumerate(next_active_links)))
-                            exist_flow = list(filter(lambda x: x[1]['constant_flow_name'] == constant_flow_name and x[1]['link'] == a['link'] and ('residual_name' in x[1]) and x[1]['residual_name'] == residual_name,
+                            exist_flow = list(filter(lambda x: (x[1]['constant_flow_name'] == constant_flow_name[0]) and x[1]['link'] == a['link'] and ('residual_name' in x[1]) and (x[1]['residual_name'] == residual_name),
                                 enumerate(next_active_links)))                            
                             if exist_flow:
                                 next_active_links[exist_flow[0][0]]['packets'] += pkt
@@ -510,7 +512,7 @@ class SlottedGraphEnvPower:
                                                             link=a['link'],
                                                             packets=pkt,
                                                             residual_name=residual_name,
-                                                            constant_flow_name=constant_flow_name))
+                                                            constant_flow_name=constant_flow_name[0]))
                                 
         if len(self.allocated) == len(self.flows):
             if total_time_slots == int(self.slot_duration/self.Simulation_Time_Resolution)-1: # last time step in time slot
@@ -666,9 +668,9 @@ class SlottedGraphEnvPower:
         # calc reward
         reward = self.calc_reward(metadata,action)
 
-        # # routing metrics are re-calculated with each new flow allocation
-        # if len(self.allocated) < self.num_flows:
-        #     self.routing_metrics['delay']['end_to_end_delay_per_flow_for_a_defined_packet_size'] = np.zeros(self.num_flows)
+        # routing metrics are re-calculated with each new flow allocation
+        if len(self.allocated) < self.num_flows:
+            self.routing_metrics['delay']['end_to_end_delay_per_flow_for_a_defined_packet_size'] = np.zeros(self.num_flows)
         
         return reward
 
@@ -932,7 +934,7 @@ class SlottedGraphEnvPower:
         self.allocated = []
         # prev_residuals = self.residual_flows
         # self.residual_flows  = []
-        self.routing_metrics = dict(rate=dict(rate_per_flow=np.full([self.num_flows,int(self.slot_duration/self.Simulation_Time_Resolution)],np.inf).astype(np.float64)),
+        self.routing_metrics = dict(rate=dict(rate_per_flow=np.full([self.num_flows,int(round(self.slot_duration/self.Simulation_Time_Resolution))],np.inf).astype(np.float64)),
                                     delay=dict(end_to_end_delay_per_flow_for_a_defined_packet_size=np.zeros(self.initial_num_of_flows), slot_delay=[]))
         
         self.possible_actions = [[] for _ in range(len(self.flows))]
