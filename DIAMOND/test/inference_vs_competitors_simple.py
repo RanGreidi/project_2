@@ -5,7 +5,7 @@ from datetime import datetime
 import shutil
 import matplotlib.pyplot as plt
 from scipy.interpolate import interp1d
-
+from copy import deepcopy
 
 import sys
 sys.path.insert(0, 'DIAMOND')
@@ -26,10 +26,10 @@ if __name__ == "__main__":
     reward_weights = dict(rate_weight=0.5, delay_weight=0, interference_weight=0, capacity_reduction_weight=0)
 
     # ------------------------------------------------------------------------
-    Simulation_Time_Resolution = 1e-1       # miliseconds (i.e. each time step is a milisecond - this is the duration of each time step in [SEC])
+    Simulation_Time_Resolution = 1e-4       # miliseconds (i.e. each time step is a milisecond - this is the duration of each time step in [SEC])
     BW_value_in_Hertz = 1e6                   # wanted BW in Hertz
-    slot_duration = 2                     # [SEC] 
-    Tot_num_of_timeslots = 20000               # [num of time slots]
+    slot_duration = 1                    # [SEC] 
+    Tot_num_of_timeslots = 2               # [num of time slots]
     #------------------------------------------------------------------------
 
     # # number of nodes
@@ -94,7 +94,7 @@ if __name__ == "__main__":
     # --------
 
     # BW matrix
-    C = BW_value_in_Hertz * np.ones((N, N)) * Simulation_Time_Resolution
+    C = BW_value_in_Hertz * np.ones((N, N))
     #------------------------------------------------------------------------
 
 
@@ -104,7 +104,7 @@ if __name__ == "__main__":
     # flow demands in KiloByte
     F = [
         {"source": 0, "destination": 8, "packets": 3  *1e6    , "time_constrain": 10 , 'flow_idx': 0 , 'constant_flow_name': 0},
-        {"source": 1, "destination": 8, "packets": 100 *1e6    , "time_constrain": 10, 'flow_idx': 1, 'constant_flow_name': 1},         #Packets [in Bits] 
+        {"source": 1, "destination": 8, "packets": 5 *1e6    , "time_constrain": 10, 'flow_idx': 1, 'constant_flow_name': 1},         #Packets [in Bits] 
         # {"source": 3, "destination": 8, "packets": 30 *1e6    , "time_constrain": 10, 'flow_idx': 2, 'constant_flow_name': 2},         #Packets [in Bits]   
         # {"source": 2, "destination": 8, "packets": 1000 *1e6    , "time_constrain": 10, 'flow_idx': 3, 'constant_flow_name': 3},
         # {"source": 0, "destination": 8, "packets": 3  *1e6    , "time_constrain": 10 , 'flow_idx': 4 , 'constant_flow_name': 4},
@@ -129,37 +129,39 @@ if __name__ == "__main__":
     #     {"source": 0, "destination": 2, "packets": 300    *1e6, "time_constrain": 10, 'flow_idx': 14 , 'constant_flow_name': 14},         #Packets [in Bits]
     #     {"source": 0, "destination": 1, "packets": 150   *1e6, "time_constrain": 10, 'flow_idx': 15 , 'constant_flow_name': 15}
     # ]
-
+    
+    F_slotted = deepcopy(F)
     slotted_env = SlottedGraphEnvPower( adjacency_matrix=A,
                                         bandwidth_matrix=C,
-                                        flows=F,
+                                        flows=F_slotted,
                                         node_positions=P,
                                         k=action_size,
-                                        initial_num_of_flows = len(F),
+                                        initial_num_of_flows = len(F_slotted),
                                         reward_weights=reward_weights,
                                         telescopic_reward = True,
                                         direction = 'minimize',
-                                        slot_duration = int(slot_duration / Simulation_Time_Resolution),          # [in SEC ]
+                                        slot_duration = int(slot_duration),          # [in SEC ]
                                         Tot_num_of_timeslots = Tot_num_of_timeslots,         # [num of time slots]
-                                        render_mode = True,
+                                        render_mode = False,
                                         trx_power_mode='gain',
                                         channel_gain = 1,
                                         # channel_manual_gain = [100,200,3,400,500,600],
                                         simualte_residauls = True,
                                         Simulation_Time_Resolution = Simulation_Time_Resolution,
                                         is_slotted = True)
-
+    
+    F_unslotted = deepcopy(F)
     UNslotted_env = SlottedGraphEnvPower( adjacency_matrix=A,
                                         bandwidth_matrix=C,
-                                        flows=F,
+                                        flows=F_unslotted,
                                         node_positions=P,
                                         k=action_size,
-                                        initial_num_of_flows = len(F),
+                                        initial_num_of_flows = len(F_unslotted),
                                         reward_weights=reward_weights,
                                         telescopic_reward = False,
                                         direction = 'minimize',
-                                        slot_duration = int( (slot_duration*Tot_num_of_timeslots) / Simulation_Time_Resolution),          # [in SEC]
-                                        Tot_num_of_timeslots = 1, # [in Minutes]
+                                        slot_duration = int(slot_duration*Tot_num_of_timeslots),          # [in SEC]
+                                        Tot_num_of_timeslots = 1, 
                                         render_mode = False,
                                         trx_power_mode='gain',
                                         channel_gain = 1,
@@ -170,8 +172,8 @@ if __name__ == "__main__":
 
     slotted_diamond = SlottedDIAMOND(grrl_model_path=MODEL_PATH)
     
-    Tot_rates_sloted = slotted_diamond(slotted_env, grrl_data=False)
-    Tot_rates_UNslotted = slotted_diamond(UNslotted_env, grrl_data=False)
+    Tot_rates_sloted, Tot_delays_sloted = slotted_diamond(slotted_env, grrl_data=False)
+    Tot_rates_UNslotted, Tot_delays_UNslotted = slotted_diamond(UNslotted_env, grrl_data=False)
 
 
     # plot rates

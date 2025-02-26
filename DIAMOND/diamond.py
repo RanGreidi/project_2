@@ -76,7 +76,7 @@ class SlottedDIAMOND:
         
         #################### central computer in network computes allocations  #################### 
         # stage 1
-        rl_actions, rl_paths, rl_reward, Tot_rates  = self.slotted_grrl.run(env=env)
+        rl_actions, rl_paths, rl_reward, Tot_rates, Tot_delays  = self.slotted_grrl.run(env=env)
         rl_actions.sort(key=lambda x: x[0])
         rl_actions = [x[1] for x in rl_actions]
         rl_delay_data = env.get_delay_data()
@@ -105,8 +105,8 @@ class SlottedDIAMOND:
 
 
         if grrl_data:
-            return Tot_rates #routs, rl_rates_data, rl_delay_data
-        return Tot_rates #routs
+            return Tot_rates, Tot_delays #routs, rl_rates_data, rl_delay_data
+        return Tot_rates, Tot_delays #routs
 
     def real_run(self,env, actions_recipe = None):
         '''
