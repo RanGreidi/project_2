@@ -165,15 +165,18 @@ def one_link_transmission_old(c, packets):
     return new_packs
 
 
-def one_link_transmission(c_list, packets):
+def one_link_transmission(c, packets,Simulation_Time_Resolution):
     # one transmission on channel where each flow has its own mimimum capacity that is determined by the list of capcities recived from calc_indevidual_minimum_capacity function
     # c is now a list
 
     # if sum(packets) <= c:
     #     return [0] * len(packets)
 
+    # adjust capcity according to timne resolution (divide capcaity by time resolution - since capcacity is in bit per second, amount of transmited durtring one
+    # one time resolution is c / time_resolution)
+    data_delivered = [capacity * Simulation_Time_Resolution for capacity in c]  # divide by Resulotion to get from bps to kbps
     new_packs = []
-    for p, c in zip(packets,c_list):
+    for p,c in zip(packets, data_delivered):
         q = c
         r = 0         # c % count
         new_packs.append(p - min(p, q))

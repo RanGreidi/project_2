@@ -187,7 +187,7 @@ def run(num_episodes=1, num_flows=10, use_nb3r=False):
         # ------------------------------------------------------------------------------------------------ #
 
         # ------------------------------------------------------------------------- #
-        save_arguments = True
+        save_arguments = False
         # --------------- Save function arguments For Analysis -------------------- #
 
         # base_path = r"C:\Users\beaviv\Ran_DIAMOND_Plots\slotted_vs_unslotted\random_topologies"
