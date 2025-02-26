@@ -26,7 +26,14 @@ import copy
 
 def run(num_episodes=1, num_flows=10, use_nb3r=False):
 
-    data = {
+    rates_data = {
+        "GRRL_Slotted": 0,  # 'diamond_slotted'
+        "GRRL_Unslotted": 0,  # 'diamond_unslotted'
+        'OSPF': 0,
+        'ICAR': 0,
+    }
+
+    delays_data = {
         "GRRL_Slotted": 0,  # 'diamond_slotted'
         "GRRL_Unslotted": 0,  # 'diamond_unslotted'
         'OSPF': 0,
@@ -50,8 +57,8 @@ def run(num_episodes=1, num_flows=10, use_nb3r=False):
 
         # Function arguments
         slotted_env_args = {
-            "num_nodes": 40,
-            "num_edges": 70,
+            "num_nodes": 20,
+            "num_edges": 40,
             "num_flows": num_flows,
             "min_flow_demand": 3 * 1e6,
             "max_flow_demand": 50 * 1e6,
@@ -78,8 +85,8 @@ def run(num_episodes=1, num_flows=10, use_nb3r=False):
         }
 
         un_slotted_env_args = {
-                            "num_nodes": 40,
-                            "num_edges": 70,
+                            "num_nodes": 20,
+                            "num_edges": 40,
                             "num_flows": num_flows,
                             "min_flow_demand": 3 * 1e6,
                             "max_flow_demand": 50 * 1e6,
@@ -180,7 +187,7 @@ def run(num_episodes=1, num_flows=10, use_nb3r=False):
         # ------------------------------------------------------------------------------------------------ #
 
         # ------------------------------------------------------------------------- #
-        save_arguments = False
+        save_arguments = True
         # --------------- Save function arguments For Analysis -------------------- #
 
         # base_path = r"C:\Users\beaviv\Ran_DIAMOND_Plots\slotted_vs_unslotted\random_topologies"
@@ -225,16 +232,17 @@ def run(num_episodes=1, num_flows=10, use_nb3r=False):
         # if not use_nb3r:
         grrl_slotted_actions, grrl_slotted_paths, reward, Tot_rates_slotted, Tot_delays_slotted = slotted_diamond(slotted_env, use_nb3r=False)
         slotted_interpolated_rates, nan_index = interpolate_rates(slotted_env=slotted_env, tot_rates=Tot_rates_slotted)
-        data["GRRL_Slotted"] += np.mean(slotted_interpolated_rates[:nan_index])
+        rates_data["GRRL_Slotted"] += np.mean(slotted_interpolated_rates[:nan_index])
+        delays_data["GRRL_Slotted"] += nan_index
 
         # else:
         #     grrl_actions, nb3r_actions, grrl_paths, nb3r_paths, Tot_rates_grrl, Tot_rates_slotted = slotted_diamond(slotted_env, use_nb3r=True)
         #
         #     slotted_interpolated_rates, nan_index = interpolate_rates(slotted_env=slotted_env, tot_rates=Tot_rates_slotted)
-        #     data["DIAMOND_Slotted"] += np.mean(slotted_interpolated_rates[:nan_index])
+        #     rates_data["DIAMOND_Slotted"] += np.mean(slotted_interpolated_rates[:nan_index])
 
             # nb3r_interpolated_rates, nan_index = interpolate_rates(slotted_env=slotted_env, tot_rates=Tot_rates_nb3r)
-            # data["NB3R_slotted"] += np.mean(grrl_interpolated_rates[:nan_index])
+            # rates_data["NB3R_slotted"] += np.mean(grrl_interpolated_rates[:nan_index])
 
         manual_decisions = [[action[0], action[1]] for action in grrl_slotted_actions[0]]
 
@@ -255,25 +263,29 @@ def run(num_episodes=1, num_flows=10, use_nb3r=False):
                                                                                                     manual_actions=manual_decisions)
 
         un_slotted_diamond_interpolated_rates, nan_index = interpolate_rates(slotted_env=slotted_env, tot_rates=Tot_rates_unslotted)
-        data["GRRL_Unslotted"] += np.mean(un_slotted_diamond_interpolated_rates[:nan_index])
+        rates_data["GRRL_Unslotted"] += np.mean(un_slotted_diamond_interpolated_rates[:nan_index])
+        delays_data["GRRL_Unslotted"] += nan_index
         # ------------------------------------------------ OSPF --------------------------------------------------- #
         #
         print(f'Started OSPF Algorithm\n')
         ospf_actions, ospf_paths, _, Tot_rates_ospf, Tot_delays_ospf = ospf.run(ospf_env, seed=ospf_env.seed)
         ospf_interpolated_rates, nan_index = interpolate_rates(slotted_env=slotted_env, tot_rates=Tot_rates_ospf)
-        data["OSPF"] += np.mean(ospf_interpolated_rates[:nan_index])
+        rates_data["OSPF"] += np.mean(ospf_interpolated_rates[:nan_index])
+        delays_data["OSPF"] += nan_index
         # ----------------------------------------------------- RB ------------------------------------------------- #
 
         # print(f'Started Random Baseline Algorithm\n')
         # RB_paths, _, Tot_rates_RB, Tot_delays_RB = RB.run(seed=RB_env.seed)
         # rb_interpolated_rates, nan_index = interpolate_rates(slotted_env=slotted_env, tot_rates=Tot_rates_RB)
-        # data["RB"] += np.mean(rb_interpolated_rates[:nan_index])
+        # rates_data["RB"] += np.mean(rb_interpolated_rates[:nan_index])
+        # rates_data["RB"] += nan_index
         # --------------------------------------------------- ICAR -------------------------------------------------- #
 
         print(f'Started ICAR Algorithm\n')
         icar_paths, icar_rewards, Tot_rates_icar, Tot_delays_icar = ICAR.run(ICAR_env, seed=ICAR_env.seed)
         icar_interpolated_rates, nan_index = interpolate_rates(slotted_env=slotted_env, tot_rates=Tot_rates_icar)
-        data["ICAR"] += np.mean(icar_interpolated_rates[:nan_index])
+        rates_data["ICAR"] += np.mean(icar_interpolated_rates[:nan_index])
+        delays_data["ICAR"] += nan_index
         # --------------------------------------------------- DQN+GNN  --------------------------------------------- #
 
         # dqn_gnn_paths, dqn_gnn_rewards, Tot_rates_dqn_gnn = DQN_GNN.run(dqn_gnn_env, seed=dqn_gnn_env.seed)
@@ -289,23 +301,26 @@ def run(num_episodes=1, num_flows=10, use_nb3r=False):
         print('finished')
 
     # average
-    for d in data:
-        data[d] /= num_episodes
+    for d1, d2 in zip(rates_data, delays_data):
+        rates_data[d1] /= num_episodes
+        delays_data[d2] /= num_episodes
 
-    return data, subfolder_path
+    return rates_data, delays_data, subfolder_path
 
 
 if __name__ == "__main__":
 
-    flows = [10, 15, 20, 25]  # [10, 20, 30]
-    episodes = 4
+    flows = [5, 10, 20, 30, 40, 50]  # [10, 20, 30]
+    episodes = 3
     algo_rates = []
+    algo_delays = []
 
     for num_flows in flows:
-        data, subfolder_path = run(num_episodes=episodes, num_flows=num_flows, use_nb3r=True)
-        algo_rates.append(list(data.values()))
+        rates_data, delays_data, subfolder_path = run(num_episodes=episodes, num_flows=num_flows, use_nb3r=True)
+        algo_rates.append(list(rates_data.values()))
+        algo_delays.append(list(delays_data.values()))
 
-    algo_names = list(data.keys())
+    algo_names = list(rates_data.keys())
 
-    plot_algorithm_rates(flows=flows, algo_rates=algo_rates, algo_names=algo_names, save_arguments=True,subfolder_path=subfolder_path)
-
+    plot_algorithm_rates(flows=flows, algo_rates=algo_rates, algo_names=algo_names, save_arguments=True, subfolder_path=subfolder_path)
+    plot_algorithm_delays(flows=flows, algo_names=algo_names, algo_delays=algo_delays, save_arguments=True, subfolder_path=subfolder_path)

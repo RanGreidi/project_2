@@ -701,5 +701,49 @@ def plot_algorithm_rates(flows, algo_names, algo_rates, save_arguments, subfolde
     plt.show()
 
 
+def plot_algorithm_delays(flows, algo_names, algo_delays, save_arguments, subfolder_path):
+    """
+    Plots rates of multiple algorithms against flow numbers.
+
+    :param flows: List of flow numbers (X-axis).
+    :param algo_names: List of algorithm names.
+    :param algo_rates: List of lists, where each sublist contains rate values for each algorithm.
+    """
+
+    fig, ax = plt.subplots(figsize=(15, 5))  # Use ax1 for better control
+
+    # Define unique colors and markers
+    colors = ['b', 'r', 'darkviolet', 'orange', 'green', 'violet', 'k', 'y']
+    markers = ['o', 'p', '+', '*', '^', '+', 'p', 'v']
+
+    for idx, algo_name in enumerate(algo_names):
+        color = colors[idx % len(colors)]  # Cycle through colors
+        marker = markers[idx % len(markers)]  # Cycle through markers
+
+        # Extract rate values for the current algorithm
+        delays = [algo_delays[i][idx] for i in range(len(flows))]
+
+        # Plot with unique color, marker, and label
+        ax.plot(flows, delays, linestyle='-', color=color, marker=marker, markersize=8,
+                markerfacecolor='none', markeredgecolor=color, label=algo_name)
+
+    ax.set_xticks(flows)
+    ax.set_xticklabels(flows, fontsize=10)
+
+    # Improve styling to match the reference
+    ax.set_xlabel("Number of Flows", fontsize=12)
+    ax.set_ylabel("Avg. Flow Delays [s]", fontsize=12)
+    ax.set_title("Algorithm Performance: Delays vs Flows Number", fontsize=14)
+
+    ax.legend(loc='best', fontsize=10)
+    ax.grid(True, linestyle='--', linewidth=0.5)  # Use dashed grid for clarity
+
+    # Save or show the plot
+    if save_arguments:
+        # Ensure the directory exists
+        os.makedirs(subfolder_path, exist_ok=True)
+        plt.savefig(os.path.join(subfolder_path, 'average_delays_over_time_over_flows.png'), dpi=300)
+    plt.show()
+
 
 

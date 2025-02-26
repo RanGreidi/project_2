@@ -154,7 +154,7 @@ class SlottedGraphEnvPower:
     def plot_raw_graph(self, save_path=None):
         """ draw global graph"""
         plt.figure()
-        nx.draw_networkx(self.graph, self.graph_pos, with_labels=False, node_color="tab:blue")
+        nx.draw_networkx(self.graph, self.graph_pos, with_labels=False, node_color="tab:blue",node_size=100)
         plt.axis('off')
         if save_path is not None:
             plt.savefig(save_path, bbox_inches='tight')
