@@ -152,7 +152,8 @@ class SlottedGRRL:
                 paths.append(env.possible_actions[action[0]][action[1]])
                 state, r = env.step(action)
                 reward += r
-            state, SlotRates_AvgOverFlows, SlotDelays_AvgOverFlows = env.end_of_slot_update(state)
+            state, SlotRates_AvgOverFlows, SlotDelays_AvgOverFlows, manual_calculated_delay = env.end_of_slot_update(state)
             Tot_rates += (SlotRates_AvgOverFlows)
-            Tot_delays.append(SlotDelays_AvgOverFlows)
+            Tot_delays.append(manual_calculated_delay)
+            # Tot_delays.append(SlotDelays_AvgOverFlows)
         return actions, paths, reward, Tot_rates, Tot_delays
