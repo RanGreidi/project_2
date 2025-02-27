@@ -47,18 +47,18 @@ def run(num_episodes=1, num_flows=10, use_nb3r=False):
 
         reward_weights = dict(rate_weight=0.5, delay_weight=0, interference_weight=0, capacity_reduction_weight=0)
         # ------------------------------------------------------------------------
-        Simulation_Time_Resolution = 1e-2  # 1e-1  # miliseconds (i.e. each time step is a milisecond - this is the duration of each time step in [SEC])
+        Simulation_Time_Resolution = 1e-1  # 1e-1  # miliseconds (i.e. each time step is a milisecond - this is the duration of each time step in [SEC])
         BW_value_in_Hertz = 1e6  # 1e6                   # wanted BW in Hertz
         slot_duration = 1  # 8 [SEC] 60
-        Tot_num_of_timeslots = 100  # 3 60  # [num of time slots]
+        Tot_num_of_timeslots = 600  # 3 60  # [num of time slots]
         # ------------------------------------------------------------------------
 
         # -------------------- Try and use "generate_env" for random topology ------------------------ #
 
         # Function arguments
         slotted_env_args = {
-            "num_nodes": 10,
-            "num_edges": 10,
+            "num_nodes": 40,
+            "num_edges": 70,
             "num_flows": num_flows,
             "min_flow_demand": 3 * 1e6,
             "max_flow_demand": 50 * 1e6,
@@ -85,8 +85,8 @@ def run(num_episodes=1, num_flows=10, use_nb3r=False):
         }
 
         un_slotted_env_args = {
-                            "num_nodes": 10,
-                            "num_edges": 10,
+                            "num_nodes": 40,
+                            "num_edges": 70,
                             "num_flows": num_flows,
                             "min_flow_demand": 3 * 1e6,
                             "max_flow_demand": 50 * 1e6,
@@ -116,7 +116,7 @@ def run(num_episodes=1, num_flows=10, use_nb3r=False):
         # ---------------- Loading args For Observation -------------- #
         if load_arguments:
             # subfolder_path = path
-            subfolder_path = r'C:\Users\beaviv\Ran_DIAMOND_Plots\slotted_vs_competition\random_topologies\8_Nodes_13_Edges\20250216_102825_10_Flows'
+            subfolder_path = r'C:\Users\beaviv\Ran_DIAMOND_Plots\slotted_vs_competition_no_nb3r\random_topologies\40_Nodes_70_Edges\20250222_171055_10_Flows'
             slotted_file_path = os.path.join(subfolder_path, "generate_slotted_env_args.json")
             slotted_env_args = load_arguments_from_file(filename=slotted_file_path)['args']
 
@@ -310,7 +310,7 @@ def run(num_episodes=1, num_flows=10, use_nb3r=False):
 
 if __name__ == "__main__":
 
-    flows = [5, 10, 20, 30, 40, 50]  # [10, 20, 30]
+    flows = [10, 20, 30, 40, 50]  # [10, 20, 30]
     episodes = 3
     algo_rates = []
     algo_delays = []
