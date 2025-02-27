@@ -63,7 +63,7 @@ def run(num_episodes=1, num_flows=10, use_nb3r=False):
             "min_flow_demand": 3 * 1e6,
             "max_flow_demand": 50 * 1e6,
             "delta": 1 * 1e6,
-            "num_actions": 40,
+            "num_actions": 20,
             "min_capacity": 1 * 1e6,  # [Hz]
             "max_capacity": 10 * 1e6,
             "direction": "minimize",
@@ -91,7 +91,7 @@ def run(num_episodes=1, num_flows=10, use_nb3r=False):
                             "min_flow_demand": 3 * 1e6,
                             "max_flow_demand": 50 * 1e6,
                             "delta": 1 * 1e6,
-                            "num_actions": 40,
+                            "num_actions": 20,
                             "min_capacity": 1 * 1e6,
                             "max_capacity": 10 * 1e6,
                             "direction": "minimize",

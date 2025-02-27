@@ -186,9 +186,10 @@ class SlottedGRRL:
                 self.update_flows(env=env, timeslot=timeslot)
             # ------------------------------------------------------ #
 
-            state,SlotRates_AvgOverFlows, SlotDelays_AvgOverFlows = env.end_of_slot_update()
+            state,SlotRates_AvgOverFlows, SlotDelays_AvgOverFlows, manual_calculated_delay = env.end_of_slot_update()
             Tot_rates_grrl += (SlotRates_AvgOverFlows)
-            Tot_delays_grrl.append(SlotDelays_AvgOverFlows)
+            Tot_delays_grrl.append(manual_calculated_delay)
+            # Tot_delays_grrl.append(SlotDelays_AvgOverFlows)
 
             # ------------------------------------------------  NB3R ------------------------------------------------- #
             if use_nb3r:
