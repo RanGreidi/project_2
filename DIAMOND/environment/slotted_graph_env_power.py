@@ -105,7 +105,7 @@ class SlottedGraphEnvPower:
         self.simualte_residauls = simualte_residauls
         self.Simulation_Time_Resolution = Simulation_Time_Resolution
         self.is_slotted = is_slotted
-        self.packet_size_for_delay_measurement = 1e3 # [bits]
+        self.packet_size_for_delay_measurement = np.max(self.bandwidth_matrix)/10 # [bits]
         # initialization once
         self.__create_graph()
         self.__calc_possible_actions()
