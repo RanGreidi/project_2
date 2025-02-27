@@ -8,7 +8,7 @@ import math
 class Reinforce:
     def __init__(self, model, config, optimizer, tb_logger, with_baseline=True):
         super().__init__()
-        self.device = torch.device("cpu")  # torch.device("cuda" if torch.cuda.is_available() else 'cpu')
+        self.device = torch.device("cuda" if torch.cuda.is_available() else 'cpu')
 
         self.policy = model.to(self.device)
         self.config = config
@@ -20,12 +20,14 @@ class Reinforce:
     def _run_episode(self, env, mode="sample", calc_baseline=True):
         rewards, log_probs = [], []
         state, ep_reward = env.reset(), 0
-        for step in range(self.config.num_flows):
-            action, log_p = self._select_action(state, method=mode)
-            state, reward = env.step(action)
-            rewards.append(reward)
-            log_probs.append(log_p)
-            ep_reward += reward
+        Tot_num_of_timeslots = env.Tot_num_of_timeslots
+        for slot_indx in range(Tot_num_of_timeslots): # as long there is still flows running (determines the num of time_slotes in one episode)
+            for step in range(env.num_flows):
+                action, log_p = self._select_action(state, method=mode)
+                state, reward = env.step(action)
+                rewards.append(reward)
+                log_probs.append(log_p)
+                ep_reward += reward
 
         # eval baseline
         if calc_baseline:
@@ -37,7 +39,7 @@ class Reinforce:
             baselines = None
 
         return rewards, log_probs, baselines
-
+    
     def _select_action(self, state, method):
         adj_matrix, edges, free_paths, free_paths_idx, demand = state
         adj_matrix = torch.from_numpy(adj_matrix).to(self.device).float()

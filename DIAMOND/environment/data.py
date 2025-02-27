@@ -32,7 +32,7 @@ def generate_env(num_nodes=10,
                  min_flow_demand=100,
                  max_flow_demand=200,
 
-                 num_actions=4,
+                 num_actions=100,
 
                  min_capacity=1000,
                  max_capacity=1000,
@@ -95,4 +95,26 @@ def generate_env(num_nodes=10,
     # interference matrix
     interference_matrix = np.ones((num_nodes, num_nodes)) - np.eye(num_nodes)
 
-    return adjacency,capacity_matrix,interference_matrix,positions,flows
+    slotted_env = SlottedGraphEnvPower( adjacency_matrix=adjacency,
+                                    bandwidth_matrix=capacity_matrix,
+                                    interference_matrix=interference_matrix,
+                                    flows=flows,
+                                    node_positions=positions,
+                                    k=num_actions,
+                                    initial_num_of_flows = len(flows),
+                                    reward_weights=dict(rate_weight=0.5, delay_weight=0, interference_weight=0, capacity_reduction_weight=0),
+                                    telescopic_reward = True,
+                                    direction = 'minimize',
+                                    slot_duration = int(1),          # [in SEC ]
+                                    Tot_num_of_timeslots = 1,         # [num of time slots]
+                                    render_mode = False,
+                                    trx_power_mode='gain',
+                                    channel_gain = 1,
+                                    # channel_manual_gain = [100,200,3,400,500,600],
+                                    simualte_residauls = True,
+                                    Simulation_Time_Resolution = 1e-2,
+                                    is_slotted = True)
+    
+    
+    
+    return slotted_env #adjacency,capacity_matrix,interference_matrix,positions,flows

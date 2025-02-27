@@ -11,7 +11,7 @@ def move_to(var, device):
 
 
 def create_trial_folder(src_folder):
-    base_path = os.path.abspath(src_folder)
+    base_path = '/work_space/project2/DIAMOND-master/results' #os.path.abspath(src_folder)
 
     # current time
     timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
@@ -33,7 +33,7 @@ def create_trial_folder(src_folder):
 
     # used-files sub-folder
     usedfiles_path = os.path.join(trial_path, "used_files")
-    diamond_path = os.path.abspath("..")
+    diamond_path = '/work_space/project2/DIAMOND-master/DIAMOND'#os.path.abspath("..")
     shutil.copytree(src=os.path.join(diamond_path, "environment"),
                     dst=os.path.join(usedfiles_path, "environment"))
     shutil.copytree(src=os.path.abspath(os.path.join(diamond_path, "stage1_grrl")),

@@ -69,7 +69,7 @@ def get_options(args=None):
     parser.add_argument('--val_size', type=int, default=200,
                         help='Number of epochs back for best validation performance')
 
-    parser.add_argument('--result_path', type=str, default='../results',
+    parser.add_argument('--result_path', type=str, default='..work_space//project2//DIAMOND-master//results',
                         help='root folder to backup')
     parser.add_argument('--direction', type=str, default="minimize", help="objective is maximize/minimize reward")
 

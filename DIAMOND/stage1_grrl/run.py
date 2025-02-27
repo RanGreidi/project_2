@@ -2,7 +2,8 @@ import json
 import torch
 import torch.optim as optim
 from tensorboard_logger import Logger as TbLogger
-
+import sys
+sys.path.insert(0, 'DIAMOND')
 from config import get_options
 from utils import *
 from gnn import GNN
