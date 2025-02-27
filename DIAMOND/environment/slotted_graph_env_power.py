@@ -539,7 +539,7 @@ class SlottedGraphEnvPower:
         self.current_link_interference_list_4EachTimeStep.append(self.current_link_interference)
         self.current_link_capacity_list_4EachTimeStep.append(current_link_capacity_after_sharing_devision)
 
-        packet_size = 1e5
+        packet_size = 1e3
         # flow_ready_target = len(self.allocated)
         flow_ready_target = sum(1 for flow in self.flows if 'path' in flow and flow.get('delivered_in_a_slot') != np.inf)
         flow_ready_counter = 0
@@ -562,6 +562,7 @@ class SlottedGraphEnvPower:
             # if all element in delay_ready list are True
             any(d.update({"delivered_in_a_slot": 0}) for d in self.flows if d['delivered_in_a_slot'] != np.inf) # zero all delivered in a slot to calulate delay all over again
             self.current_flow_delay_list_4EachTimeStep.append(self.routing_metrics['delay']['end_to_end_delay_per_flow_for_a_defined_packet_size'])
+            metadata['delay'].append(self.routing_metrics['delay']['end_to_end_delay_per_flow_for_a_defined_packet_size'])
             self.routing_metrics['delay']['end_to_end_delay_per_flow_for_a_defined_packet_size'] = np.zeros(self.initial_num_of_flows)
 
         # 3. plot & reset & save interferences for next global step
@@ -750,22 +751,26 @@ class SlottedGraphEnvPower:
         # rate reward 
         rate_for_all_link_of_current_flow = self.current_link_capacity_list_4EachTimeStep[idx_for_interferance_and_capacity]
         rates_list_for_current_flow = []
+        minimum_BW_for_current_path = np.inf
         for i in range(len(curent_flow_path) - 1):
             u = curent_flow_path[i]
             v = curent_flow_path[i+1]
             link_idx = self.eids[(u,v)]
             rates_list_for_current_flow.append(rate_for_all_link_of_current_flow[link_idx])
+            if self.bandwidth_edge_list[link_idx] < minimum_BW_for_current_path: minimum_BW_for_current_path = self.bandwidth_edge_list[link_idx]
         rate_reward = np.min(rates_list_for_current_flow) 
+        rate_reward = rate_reward / minimum_BW_for_current_path # normelize rate reward by BW
+
 
         # influence reward
         Tot_interence_for_current_flow = sum(metadata[idx_for_interferance_and_capacity]['interference'])
         capacity_reduction = sum(metadata[idx_for_interferance_and_capacity]['capacity_reduction'])
-        avg_excess_delay = np.max(self.routing_metrics['delay']['end_to_end_delay_per_flow_for_a_defined_packet_size'])
+        avg_excess_delay = np.max(self.current_flow_delay_list_4EachTimeStep[0]) # delay of the slowest flow for the first packet_size arrived
         influence_reward = Tot_interence_for_current_flow + avg_excess_delay + capacity_reduction
 
         
         # rate_weight = self.kwargs.get('reward_weights', dict()).get('rate_weight', 1)
-        reward = 0.8 * rate_reward + 0.2 * influence_reward
+        reward = 0.5 * rate_reward - 0.5 * influence_reward
         
         # if self.kwargs.get('direction', 'maximize') == 'minimize':
         #     reward *= -1
@@ -780,7 +785,7 @@ class SlottedGraphEnvPower:
         
         # # zero slot delay for next slot
         # self.routing_metrics['delay']['end_to_end_delay_per_flow_for_a_defined_packet_size'] = np.zeros(self.num_flows)
-        return -reward
+        return reward
 
     def end_of_slot_update(self,state):
         '''
